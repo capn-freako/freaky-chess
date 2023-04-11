@@ -18,6 +18,7 @@ data Square = Empty
 
 data Color = Black
            | White
+  deriving(Eq)
 
 data Piece = Pawn
            | Rook
@@ -26,25 +27,34 @@ data Piece = Pawn
            | Queen
            | King
 
-data Direction = Up
-               | UpRight
-               | Right
-               | DownRight
-               | Down
-               | DownLeft
-               | Left
-               | UpLeft
+data Direction = N
+               | NE
+               | E
+               | SE
+               | S
+               | SW
+               | W
+               | NW
+
+diagDirs = [NW, NE, SE, SW]
+rectDirs = [N, S, E, W]
+allDirs  = diagDirs ++ rectDirs
 
 -- Is the given position occupied by a piece of the given color?
-occupiedBy :: Color -> Position -> Board -> Bool
-occupiedBy color pos@(rank, file) brd =
+occupiedBy :: Board -> Position -> Color -> Bool
+occupiedBy brd pos@(rank, file) color =
   validPos pos && case brd !! rank !! file of
     Empty          -> False
     Occupied clr _ -> clr == color
 
+occupied :: Board -> Position -> Bool
+occupied brd pos = occupiedBy' White || occupiedBy' Black
+ where
+  occupiedBy' = occupiedBy brd pos
+
 -- Is the given position valid?
 validPos :: Position -> Bool
-validPos (rank, file) = ! (rank < 0 || rank > 7 || file < 0 || file > 7)
+validPos (rank, file) = not (rank < 0 || rank > 7 || file < 0 || file > 7)
 
 otherColor :: Color -> Color
 otherColor White = Black
@@ -53,5 +63,5 @@ otherColor Black = White
 allPos :: [Position]
 allPos = [ (rank, file)
          | rank <- [0..7]
-         | file <- [0..7]
+         , file <- [0..7]
          ]
