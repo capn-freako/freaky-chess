@@ -1,0 +1,59 @@
+name:                freaky-chess
+version:             0.1.0.0
+github:              "capn-freako/freaky-chess"
+license:             BSD3
+author:              "David Banas"
+maintainer:          "capn.freako@gmail.com"
+copyright:           "Copyright (c) 2023 David Banas; all rights reserved World wide."
+
+extra-source-files:
+- README.md
+- CHANGELOG.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/capn-freako/freaky-chess#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+library:
+  source-dirs: src
+
+executables:
+  freaky-chess-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - freaky-chess
+
+tests:
+  freaky-chess-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - freaky-chess
