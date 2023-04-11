@@ -12,8 +12,8 @@ import Data.List (sortOn)
 import Chess.Types
 import Chess.Moves
 
-attemptMove :: Color -> Board -> Position -> Position -> Either String Board
-attemptMove clr brd from to = Left "Not implemented, yet."
+-- attemptMove :: Color -> Board -> Position -> Position -> Either String Board
+-- attemptMove clr brd from to = Left "Not implemented, yet."
 
 rankMoves :: Color -> Board -> [Board]
 rankMoves clr brd = sortOn rankBoard $ concatMap (movesFromSquare clr brd) allPos

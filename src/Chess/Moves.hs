@@ -8,19 +8,20 @@
 module Chess.Moves where
 
 import Data.List  (unfoldr)
+-- import Data.Maybe (mapMaybe, catMaybes)
 import Data.Maybe (catMaybes)
 
 import Chess.Types
 
 -- Return the list of valid moves from the given square for the given player.
 movesFromSquare :: Color -> Board -> Position -> [Board]
-movesFromSquare color brd pos = case (getSquare pos brd) of
+movesFromSquare color brd pos = case getSquare pos brd of
   Nothing                                  -> []
   Just Empty                               -> []
-  Just (Occupied clr piece) | clr /= color -> []
-                            | otherwise    -> catMaybes [ movePiece brd pos newPos
-                                                        | newPos <- validNewPos brd pos
-                                                        ]
+  Just (Occupied clr _) | clr /= color -> []
+                        | otherwise    -> catMaybes [ movePiece brd pos newPos
+                                                    | newPos <- validNewPos brd pos
+                                                    ]
 
 getSquare :: Position -> Board -> Maybe Square
 getSquare pos@(rank, file) brd
@@ -51,14 +52,14 @@ validNewPos brd pos@(rank, file) = case getSquare pos brd of
     Empty                -> []
     Occupied color piece -> case piece of
       Pawn   -> case color of
-        White -> if (occupied' (rank+1, file)) then [] else [(rank+1, file)]
-              ++ if (rank == 1 && not (occupied' (rank+2, file))) then [(rank+2, file)] else []
-              ++ if (occupiedBy' (rank+1, file-1) Black) then [(rank+1, file-1)] else []
-              ++ if (occupiedBy' (rank+1, file+1) Black) then [(rank+1, file+1)] else []
-        Black -> if (occupied' (rank-1, file)) then [] else [(rank-1, file)]
-              ++ if (rank == 6 && not (occupied' (rank-2, file))) then [(rank-2, file)] else []
-              ++ if (occupiedBy' (rank-1, file-1) White) then [(rank-1, file-1)] else []
-              ++ if (occupiedBy' (rank-1, file+1) White) then [(rank-1, file+1)] else []
+        White -> [(rank+1, file)   | not $ occupied' (rank+1, file)]
+              ++ [(rank+2, file)   | rank == 1 && not (occupied' (rank+2, file))]
+              ++ [(rank+1, file-1) | occupiedBy' (rank+1, file-1) Black]
+              ++ [(rank+1, file+1) | occupiedBy' (rank+1, file+1) Black]
+        Black -> [(rank-1, file)   | not $ occupied' (rank-1, file)]
+              ++ [(rank-2, file)   | rank == 6 && not (occupied' (rank-2, file))]
+              ++ [(rank-1, file-1) | occupiedBy' (rank-1, file-1) White]
+              ++ [(rank-1, file+1) | occupiedBy' (rank-1, file+1) White]
       Knight -> [ pos'
                 | pos' <- [ (rank+1, file-2)
                           , (rank+2, file-1)
@@ -72,7 +73,6 @@ validNewPos brd pos@(rank, file) = case getSquare pos brd of
                 , validPos pos'
                 , not $ occupiedBy' pos' color
                 ]
-      King   -> map fst $ catMaybes $ map (makeMove brd pos color) allDirs
       King   -> concatMap (take 1) $ reaches color allDirs
       Rook   -> concat             $ reaches color rectDirs
       Bishop -> concat             $ reaches color diagDirs
@@ -80,7 +80,7 @@ validNewPos brd pos@(rank, file) = case getSquare pos brd of
  where
   occupied'   = occupied   brd
   occupiedBy' = occupiedBy brd
-  reaches clr dirs = map (reach brd pos clr) dirs
+  reaches clr = map (reach brd pos clr)
 
 -- Return available reach in the given direction.
 reach :: Board -> Position -> Color -> Direction -> [Position]
