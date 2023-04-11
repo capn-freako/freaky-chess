@@ -36,8 +36,13 @@ data Direction = N
                | W
                | NW
 
+diagDirs :: [Direction]
 diagDirs = [NW, NE, SE, SW]
+
+rectDirs :: [Direction]
 rectDirs = [N, S, E, W]
+
+allDirs :: [Direction]
 allDirs  = diagDirs ++ rectDirs
 
 -- Is the given position occupied by a piece of the given color?

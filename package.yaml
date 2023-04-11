@@ -21,6 +21,7 @@ description:         Please see the README on GitHub at <https://github.com/capn
 
 dependencies:
 - base >= 4.7 && < 5
+- mtl
 
 ghc-options:
 - -Wall
@@ -28,7 +29,7 @@ ghc-options:
 - -Widentities
 - -Wincomplete-record-updates
 - -Wincomplete-uni-patterns
-- -Wmissing-export-lists
+# - -Wmissing-export-lists
 - -Wmissing-home-modules
 - -Wpartial-fields
 - -Wredundant-constraints
