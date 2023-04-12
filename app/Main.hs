@@ -25,38 +25,47 @@ main = do
     putStr "Move? "
     hFlush stdout
     cmd <- getLine
-    return $ evalCmd brd cmd >>= \brd' -> return (rankBoard brd', brd')
+    case evalCmd brd cmd of
+      Left  msg  -> case msg of
+                      "quit" -> return Nothing
+                      _      -> do putStrLn msg
+                                   return $ Just (rankBoard brd, brd)
+      Right brd' -> return $ Just (rankBoard brd', brd')
   putStrLn "Finished."
 
-evalCmd :: Board -> String -> Maybe Board
+evalCmd :: Board -> String -> Either String Board
 evalCmd brd cmd = do
   (from, to) <- parseCmd cmd
   if to `elem` validNewPos brd from
-    then movePiece brd from to
-    else Nothing
+    then case movePiece brd from to of
+           Nothing   -> Left "Invalid board position!"
+           Just brd' -> Right brd'
+    else Left "Requested move is invalid!"
 
-parseCmd :: String -> Maybe (Position, Position)
+parseCmd :: String -> Either String (Position, Position)
 parseCmd cmd = case words cmd of
-  []            -> Nothing
-  "quit" : _    -> Nothing
+  []            -> Left "Empty command string!"
+  "quit" : _    -> Left "quit"
   from   : wrds ->
     case wrds of
-      []     -> Nothing
+      []     -> Left "Missing destination square!"
       to : _ -> decodeSquares (from, to)
 
-decodeSquares :: (String, String) -> Maybe (Position, Position)
+decodeSquares :: (String, String) -> Either String (Position, Position)
 decodeSquares (wrd1, wrd2) = do
   from <- decodeSquare wrd1
   to   <- decodeSquare wrd2
   return (from, to)
 
-decodeSquare :: String -> Maybe Position
+decodeSquare :: String -> Either String Position
 decodeSquare str = case str of
-  []              -> Nothing
+  []              -> Left "Empty string!"
   fileChar : str' ->
     case str' of
-      []           -> Nothing
+      []           -> Left "Missing rank character!"
       rankChar : _ -> let rank = ord rankChar - ord '1'
                           file = ord fileChar - ord 'a'
                           pos  = (rank, file)
-                       in if validPos pos then Just pos else Nothing
+                       in if validPos pos
+                            then Right pos
+                            else Left $ "Invalid position: " ++ fileChar : [rankChar]
