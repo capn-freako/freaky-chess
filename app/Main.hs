@@ -1,6 +1,7 @@
 module Main (main) where
 
-import Lib
+import Chess.Play
+import Chess.Types
 
-main :: IO ()
-main = someFunc
+main :: IO [()]
+main = printBoard newGame

@@ -14,10 +14,10 @@ import Data.Maybe (fromJust)
 import Chess.Types
 import Chess.Moves
 
--- attemptMove :: Color -> Board -> Position -> Position -> Either String Board
+-- attemptMove :: Player -> Board -> Position -> Position -> Either String Board
 -- attemptMove clr brd from to = Left "Not implemented, yet."
 
-rankMoves :: Color -> Board -> [Board]
+rankMoves :: Player -> Board -> [Board]
 rankMoves clr brd = sortOn rankBoard $ concatMap (movesFromSquare clr brd) allPos
 
 rankBoard :: Board -> Int
@@ -29,24 +29,24 @@ newGame = flip execState emptyBoard $
        \(pos, square) -> get >>= (put . fromJust . setSquare pos square)
  where
   initialPlacements =
-    [ ((0,0), Occupied White Rook)
-    , ((0,1), Occupied White Knight)
-    , ((0,2), Occupied White Bishop)
-    , ((0,3), Occupied White Queen)
-    , ((0,4), Occupied White King)
-    , ((0,5), Occupied White Bishop)
-    , ((0,6), Occupied White Knight)
-    , ((0,7), Occupied White Rook)
-    ] ++ map (\file -> ((1, file), Occupied White Pawn)) [0..7] ++
-    [ ((7,0), Occupied Black Rook)
-    , ((7,1), Occupied Black Knight)
-    , ((7,2), Occupied Black Bishop)
-    , ((7,3), Occupied Black Queen)
-    , ((7,4), Occupied Black King)
-    , ((7,5), Occupied Black Bishop)
-    , ((7,6), Occupied Black Knight)
-    , ((7,7), Occupied Black Rook)
-    ] ++ map (\file -> ((6, file), Occupied Black Pawn)) [0..7]
+    [ ((0,0), Occupied Wht R)
+    , ((0,1), Occupied Wht N)
+    , ((0,2), Occupied Wht B)
+    , ((0,3), Occupied Wht Q)
+    , ((0,4), Occupied Wht K)
+    , ((0,5), Occupied Wht B)
+    , ((0,6), Occupied Wht N)
+    , ((0,7), Occupied Wht R)
+    ] ++ map (\file -> ((1, file), Occupied Wht P)) [0..7] ++
+    [ ((7,0), Occupied Blk R)
+    , ((7,1), Occupied Blk N)
+    , ((7,2), Occupied Blk B)
+    , ((7,3), Occupied Blk Q)
+    , ((7,4), Occupied Blk K)
+    , ((7,5), Occupied Blk B)
+    , ((7,6), Occupied Blk N)
+    , ((7,7), Occupied Blk R)
+    ] ++ map (\file -> ((6, file), Occupied Blk P)) [0..7]
 
 emptyBoard :: Board
 emptyBoard = replicate 8 (replicate 8 Empty)

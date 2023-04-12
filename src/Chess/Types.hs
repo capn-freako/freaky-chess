@@ -7,6 +7,9 @@
 
 module Chess.Types where
 
+import Control.Monad (forM)
+import System.Console.ANSI
+
 type Board = [[Square]]
 
 type Position = (Rank, File)
@@ -14,46 +17,51 @@ type Rank     = Int
 type File     = Int
 
 data Square = Empty
-            | Occupied Color Piece
+            | Occupied Player Piece
 
-data Color = Black
-           | White
+instance Show Square where
+  show Empty                = "   "
+  show (Occupied clr piece) = " " ++ show piece ++ " "
+
+data Player = Blk
+           | Wht
   deriving(Eq)
 
-data Piece = Pawn
-           | Rook
-           | Knight
-           | Bishop
-           | Queen
-           | King
+data Piece = P
+           | R
+           | N
+           | B
+           | Q
+           | K
+  deriving (Show)
 
-data Direction = N
+data Direction = U
                | NE
                | E
                | SE
                | S
                | SW
-               | W
+               | L
                | NW
 
 diagDirs :: [Direction]
 diagDirs = [NW, NE, SE, SW]
 
 rectDirs :: [Direction]
-rectDirs = [N, S, E, W]
+rectDirs = [U, S, E, L]
 
 allDirs :: [Direction]
 allDirs  = diagDirs ++ rectDirs
 
 -- Is the given position occupied by a piece of the given color?
-occupiedBy :: Board -> Position -> Color -> Bool
+occupiedBy :: Board -> Position -> Player -> Bool
 occupiedBy brd pos@(rank, file) color =
   validPos pos && case brd !! rank !! file of
     Empty          -> False
     Occupied clr _ -> clr == color
 
 occupied :: Board -> Position -> Bool
-occupied brd pos = occupiedBy' White || occupiedBy' Black
+occupied brd pos = occupiedBy' Wht || occupiedBy' Blk
  where
   occupiedBy' = occupiedBy brd pos
 
@@ -61,12 +69,30 @@ occupied brd pos = occupiedBy' White || occupiedBy' Black
 validPos :: Position -> Bool
 validPos (rank, file) = not (rank < 0 || rank > 7 || file < 0 || file > 7)
 
-otherColor :: Color -> Color
-otherColor White = Black
-otherColor Black = White
+otherColor :: Player -> Player
+otherColor Wht = Blk
+otherColor Blk = Wht
 
 allPos :: [Position]
 allPos = [ (rank, file)
          | rank <- [0..7]
          , file <- [0..7]
          ]
+
+printBoard :: Board -> IO [()]
+printBoard brd =
+  forM (reverse $ zip [0..7] brd) $ \rank -> do
+    printRank rank
+    setSGR [Reset]
+    putStrLn ""
+
+printRank :: (Int, [Square]) -> IO [()]
+printRank (rank, squares) =
+  forM (zip [0..7] squares) $ \(file, square) -> do
+    (if ((rank + file) `mod` 2) == 1
+      then setSGR [SetColor Background Dull  White]
+      else setSGR [SetColor Background Vivid Black])
+    (case square of
+      Occupied Wht _ -> setSGR [SetColor Foreground Vivid White]
+      _              -> setSGR [SetColor Foreground Dull  Black])
+    putStr $ show square
