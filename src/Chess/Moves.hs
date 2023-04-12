@@ -8,12 +8,12 @@
 module Chess.Moves where
 
 import Data.List  (unfoldr)
--- import Data.Maybe (mapMaybe, catMaybes)
 import Data.Maybe (catMaybes)
 
 import Chess.Types
 
--- Return the list of valid moves from the given square for the given player.
+-- Return the list of boards corresponding to all valid moves from the
+-- given square for the given player.
 movesFromSquare :: Player -> Board -> Position -> [Board]
 movesFromSquare color brd pos = case getSquare pos brd of
   Nothing                                  -> []
@@ -44,6 +44,7 @@ movePiece brd oldPos newPos = do
   square <- getSquare oldPos brd
   setSquare oldPos Empty brd >>= setSquare newPos square
 
+-- Return the list of valid new positions for a piece.
 -- ToDo: add "en passat" P move.
 validNewPos :: Board -> Position -> [Position]
 validNewPos brd pos@(rank, file) = case getSquare pos brd of
