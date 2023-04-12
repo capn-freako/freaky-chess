@@ -30,7 +30,10 @@ main = do
                       "quit" -> return Nothing
                       _      -> do putStrLn msg
                                    return $ Just (rankBoard brd, brd)
-      Right brd' -> return $ Just (rankBoard brd', brd')
+      Right brd' -> case rankMoves Blk brd' of
+                      []        -> do putStrLn "Black cannot move!"
+                                      return Nothing
+                      brd'' : _ -> return $ Just (rankBoard brd'', brd'')
   putStrLn "Finished."
 
 evalCmd :: Board -> String -> Either String Board

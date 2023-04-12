@@ -79,19 +79,23 @@ allPos = [ (rank, file)
          , file <- [0..7]
          ]
 
-printBoard :: Board -> IO [()]
-printBoard brd =
+printBoard :: Board -> IO ()
+printBoard brd = do
   forM (reverse $ zip [0..7] brd) $ \rank -> do
+    -- setSGR [SetConsoleIntensity BoldIntensity]
+    putStr $ show $ fst rank + 1
+    putStr " "
     printRank rank
     setSGR [Reset]
     putStrLn ""
+  putStrLn "   a  b  c  d  e  f  g  h"
 
 printRank :: (Int, [Square]) -> IO [()]
 printRank (rank, squares) =
   forM (zip [0..7] squares) $ \(file, square) -> do
-    (if ((rank + file) `mod` 2) == 1
-      then setSGR [SetColor Background Dull  White]
-      else setSGR [SetColor Background Vivid Black])
+    (if ((rank + file) `mod` 2) /= 1
+      then setSGR [SetColor Background Dull  Cyan]
+      else setSGR [SetColor Background Vivid Green])
     (case square of
       Occupied Wht _ -> setSGR [SetColor Foreground Vivid White]
       _              -> setSGR [SetColor Foreground Dull  Black])
