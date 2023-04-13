@@ -7,14 +7,61 @@
 
 module Chess.Types where
 
-import Control.Monad (forM, forM_)
+import Control.Monad.State.Lazy
+import Data.HashMap.Strict       (HashMap, fromList)
+import Data.Maybe                (fromJust)
 import System.Console.ANSI
 
-type Board = [[Square]]
+data Board = Board
+  { squares  :: [[Square]]
+  , moved    :: HashMap String Bool
+  , lastMove :: Maybe Position
+  }
+
+newGame :: Board
+newGame = execState
+  ( forM initialPlacements $
+      \(pos, square) ->
+        get >>= (put . fromJust . setSquare pos square)
+  )
+  Board
+  { squares = replicate 8 (replicate 8 Empty)
+  , moved = fromList [ ("WK",  False)
+                     , ("WKR", False)
+                     , ("WQR", False)
+                     , ("BK",  False)
+                     , ("BKR", False)
+                     , ("BQR", False)
+                     ]
+  , lastMove = Nothing
+  }
+ where
+  initialPlacements =
+    [ ((0,0), Occupied Wht R)
+    , ((0,1), Occupied Wht N)
+    , ((0,2), Occupied Wht B)
+    , ((0,3), Occupied Wht Q)
+    , ((0,4), Occupied Wht K)
+    , ((0,5), Occupied Wht B)
+    , ((0,6), Occupied Wht N)
+    , ((0,7), Occupied Wht R)
+    ] ++ map (\file -> ((1, file), Occupied Wht P)) [0..7] ++
+    [ ((7,0), Occupied Blk R)
+    , ((7,1), Occupied Blk N)
+    , ((7,2), Occupied Blk B)
+    , ((7,3), Occupied Blk Q)
+    , ((7,4), Occupied Blk K)
+    , ((7,5), Occupied Blk B)
+    , ((7,6), Occupied Blk N)
+    , ((7,7), Occupied Blk R)
+    ] ++ map (\file -> ((6, file), Occupied Blk P)) [0..7]
 
 type Position = (Rank, File)
 type Rank     = Int
 type File     = Int
+
+posValid :: Position -> Bool
+posValid (rank, file) = not (rank < 0 || rank > 7 || file < 0 || file > 7)
 
 data Square = Empty
             | Occupied Player Piece
@@ -22,6 +69,26 @@ data Square = Empty
 instance Show Square where
   show Empty                = "   "
   show (Occupied _ piece) = " " ++ show piece ++ " "
+
+getSquare :: Position -> Board -> Maybe Square
+getSquare pos@(rank, file) brd
+  | posValid pos = Just (squares brd !! rank !! file)
+  | otherwise    = Nothing
+
+setSquare :: Position -> Square -> Board -> Maybe Board
+setSquare pos@(rank, file) square brd
+  | posValid pos = Just brd { squares = replace rank
+                                                ( replace file
+                                                          square
+                                                          (squares brd !! rank)
+                                                )
+                                                (squares brd)
+                            }
+  | otherwise    = Nothing
+ where
+  replace :: Int -> a -> [a] -> [a]
+  replace ix x xs = take ix xs ++ x : drop (ix + 1) xs
+
 
 data Player = Blk
             | Wht
@@ -56,7 +123,7 @@ allDirs  = diagDirs ++ rectDirs
 -- Is the given position occupied by a piece of the given color?
 occupiedBy :: Board -> Position -> Player -> Bool
 occupiedBy brd pos@(rank, file) color =
-  validPos pos && case brd !! rank !! file of
+  validPos pos && case squares brd !! rank !! file of
     Empty          -> False
     Occupied clr _ -> clr == color
 
@@ -81,7 +148,7 @@ allPos = [ (rank, file)
 
 printBoard :: Board -> IO ()
 printBoard brd = do
-  forM_ (reverse $ zip [0..7] brd) $ \rank -> do
+  forM_ (reverse $ zip [0..7] (squares brd)) $ \rank -> do
     putStr $ show $ fst rank + 1
     putStr " "
     printRank rank
@@ -90,8 +157,8 @@ printBoard brd = do
   putStrLn "   a  b  c  d  e  f  g  h"
 
 printRank :: (Int, [Square]) -> IO [()]
-printRank (rank, squares) =
-  forM (zip [0..7] squares) $ \(file, square) -> do
+printRank (rank, sqrs) =
+  forM (zip [0..7] sqrs) $ \(file, square) -> do
     (if ((rank + file) `mod` 2) /= 1
       then setSGR [SetColor Background Dull  Cyan]
       else setSGR [SetColor Background Vivid Green])

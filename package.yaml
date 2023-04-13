@@ -24,6 +24,7 @@ dependencies:
 - ansi-terminal
 - monad-extras
 - mtl
+- unordered-containers
 - yjtools
 
 ghc-options:
