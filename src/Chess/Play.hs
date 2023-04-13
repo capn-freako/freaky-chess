@@ -7,6 +7,7 @@
 
 module Chess.Play where
 
+import Control.Arrow ((&&&))
 import Control.Monad.State.Lazy
 import Data.List (sortOn)
 import Data.Maybe (fromJust)
@@ -14,8 +15,21 @@ import Data.Maybe (fromJust)
 import Chess.Types
 import Chess.Moves
 
-rankMoves :: Player -> Board -> [Board]
-rankMoves clr brd = sortOn rankBoard $ concatMap (movesFromSquare clr brd) allPos
+rankMoves :: Player -> Board -> [(Int, Board)]
+rankMoves clr brd =
+  let myMoves = allMoves clr brd
+      clr'    = otherColor clr
+      rslts   = sortOn fst $ map ((bestFor clr' . allMoves clr') &&& id) myMoves
+   in if clr == Blk
+        then rslts
+        else reverse rslts
+ where
+  bestFor :: Player -> [Board] -> Int
+  bestFor Wht = maximum . map rankBoard
+  bestFor Blk = minimum . map rankBoard
+
+allMoves :: Player -> Board -> [Board]
+allMoves clr brd = concatMap (movesFromSquare clr brd) allPos
 
 type BoardScore  = Board -> Int
 type PlayerScore = Player -> BoardScore

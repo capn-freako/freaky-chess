@@ -30,9 +30,9 @@ main = do
                       _      -> do putStrLn msg
                                    return $ Just (rankBoard brd, brd)
       Right brd' -> case rankMoves Blk brd' of
-                      []        -> do putStrLn "Black cannot move!"
-                                      return Nothing
-                      brd'' : _ -> return $ Just (rankBoard brd'', brd'')
+                      []       -> do putStrLn "Black cannot move!"
+                                     return Nothing
+                      best : _ -> return $ Just best
   putStrLn "Finished. Score history:"
   forM_ moves print
 
