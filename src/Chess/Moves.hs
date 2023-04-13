@@ -23,22 +23,6 @@ movesFromSquare color brd pos = case getSquare pos brd of
                                                     | newPos <- validNewPos brd pos
                                                     ]
 
-getSquare :: Position -> Board -> Maybe Square
-getSquare pos@(rank, file) brd
-  | posValid pos = Just (brd !! rank !! file)
-  | otherwise    = Nothing
-
-setSquare :: Position -> Square -> Board -> Maybe Board
-setSquare pos@(rank, file) square brd
-  | posValid pos = Just (replace rank (replace file square (brd !! rank)) brd)
-  | otherwise    = Nothing
-
-replace :: Int -> a -> [a] -> [a]
-replace ix x xs = take ix xs ++ x : drop (ix + 1) xs
-
-posValid :: Position -> Bool
-posValid (rank, file) = not (rank < 0 || rank > 7 || file < 0 || file > 7)
-
 movePiece :: Board -> Position -> Position -> Maybe Board
 movePiece brd oldPos newPos = do
   square <- getSquare oldPos brd
