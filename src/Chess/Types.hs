@@ -7,7 +7,7 @@
 
 module Chess.Types where
 
-import Control.Monad (forM)
+import Control.Monad (forM, forM_)
 import System.Console.ANSI
 
 type Board = [[Square]]
@@ -21,10 +21,10 @@ data Square = Empty
 
 instance Show Square where
   show Empty                = "   "
-  show (Occupied clr piece) = " " ++ show piece ++ " "
+  show (Occupied _ piece) = " " ++ show piece ++ " "
 
 data Player = Blk
-           | Wht
+            | Wht
   deriving(Eq)
 
 data Piece = P
@@ -35,7 +35,7 @@ data Piece = P
            | K
   deriving (Show)
 
-data Direction = U
+data Direction = U  -- "N" is used above.
                | NE
                | E
                | SE
@@ -81,8 +81,7 @@ allPos = [ (rank, file)
 
 printBoard :: Board -> IO ()
 printBoard brd = do
-  forM (reverse $ zip [0..7] brd) $ \rank -> do
-    -- setSGR [SetConsoleIntensity BoldIntensity]
+  forM_ (reverse $ zip [0..7] brd) $ \rank -> do
     putStr $ show $ fst rank + 1
     putStr " "
     printRank rank
