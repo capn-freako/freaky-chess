@@ -45,8 +45,7 @@ I seek to discuss the codified board evaluation heuristics with other Chess play
 
 ## FAQ
 
-1. I don't speak _Haskell_ and have no desire to learn.
-Can you quickly bootstrap my understanding of these "codified heuristics" and how you write them?
+### I don't speak _Haskell_ and have no desire to learn. Can you quickly bootstrap my understanding of these "codified heuristics" and how you write them?
 
 Taking the [`mobilityByPlayer()` function](https://github.com/capn-freako/freaky-chess/blob/c80e1680827723484066317f92b18908ab123cf9/src/Chess/Play.hs#L67-L69) as an example:
 
@@ -79,3 +78,11 @@ It is most easily read from right to left, segmented by the "$"s as follows:
         1. The `length()` just gives the length of this list, which is a measure of how many moves that piece could make, i.e., its _mobility_.
 
 1. Finally, the `sum()` function just adds up the mobilities of all pieces of the given color, yielding that player's _total mobility_.
+
+### Can you show me an example of what it looks like to play _freaky-chess_?
+
+Here is a screen shot of a game terminated after the second move:
+
+![_freaky-chess_ Screen Shot](img/example.png)
+
+Wrt/ _score_, positive numbers favor White, while negative numbers favor Black.
