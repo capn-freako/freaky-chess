@@ -7,11 +7,10 @@
 
 module Main (main) where
 
+import Control.Monad            (forM_)
 import Control.Monad.Extra      (unfoldM)
--- import Control.Monad.State.Lazy (execStateT, get, put, lift)
 import Control.Monad.Tools      ()
 import Data.Char                (ord)
--- import Data.Maybe               (fromJust)
 import System.IO                (hFlush, stdout)
 
 import Chess.Moves
@@ -34,7 +33,8 @@ main = do
                       []        -> do putStrLn "Black cannot move!"
                                       return Nothing
                       brd'' : _ -> return $ Just (rankBoard brd'', brd'')
-  putStrLn "Finished."
+  putStrLn "Finished. Score history:"
+  forM_ moves print
 
 evalCmd :: Board -> String -> Either String Board
 evalCmd brd cmd = do

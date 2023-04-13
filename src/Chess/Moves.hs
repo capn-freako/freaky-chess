@@ -52,52 +52,53 @@ validNewPos brd pos@(rank, file) = case getSquare pos brd of
   Just square -> case square of
     Empty                -> []
     Occupied color piece -> case piece of
-      P   -> case color of
+      P -> case color of
         Wht -> [(rank+1, file)   | not $ occupied' (rank+1, file)]
-              ++ [(rank+2, file)   | rank == 1 && not (occupied' (rank+2, file))]
-              ++ [(rank+1, file-1) | occupiedBy' (rank+1, file-1) Blk]
-              ++ [(rank+1, file+1) | occupiedBy' (rank+1, file+1) Blk]
+            ++ [(rank+2, file)   | rank == 1 && not (occupied' (rank+2, file))]
+            ++ [(rank+1, file-1) | occupiedBy' (rank+1, file-1) Blk]
+            ++ [(rank+1, file+1) | occupiedBy' (rank+1, file+1) Blk]
         Blk -> [(rank-1, file)   | not $ occupied' (rank-1, file)]
-              ++ [(rank-2, file)   | rank == 6 && not (occupied' (rank-2, file))]
-              ++ [(rank-1, file-1) | occupiedBy' (rank-1, file-1) Wht]
-              ++ [(rank-1, file+1) | occupiedBy' (rank-1, file+1) Wht]
+            ++ [(rank-2, file)   | rank == 6 && not (occupied' (rank-2, file))]
+            ++ [(rank-1, file-1) | occupiedBy' (rank-1, file-1) Wht]
+            ++ [(rank-1, file+1) | occupiedBy' (rank-1, file+1) Wht]
       N -> [ pos'
-                | pos' <- [ (rank+1, file-2)
-                          , (rank+2, file-1)
-                          , (rank+2, file+1)
-                          , (rank+1, file+2)
-                          , (rank-1, file-2)
-                          , (rank-2, file-1)
-                          , (rank-2, file+1)
-                          , (rank-1, file+2)
-                          ]
-                , validPos pos'
-                , not $ occupiedBy' pos' color
-                ]
-      K   -> concatMap (take 1) $ reaches color allDirs
-      R   -> concat             $ reaches color rectDirs
+           | pos' <- [ (rank+1, file-2)
+                     , (rank+2, file-1)
+                     , (rank+2, file+1)
+                     , (rank+1, file+2)
+                     , (rank-1, file-2)
+                     , (rank-2, file-1)
+                     , (rank-2, file+1)
+                     , (rank-1, file+2)
+                     ]
+           , validPos pos'
+           , not $ occupiedBy' pos' color
+           ]
+      K -> concatMap (take 1) $ reaches color allDirs
+      R -> concat             $ reaches color rectDirs
       B -> concat             $ reaches color diagDirs
-      Q  -> concat             $ reaches color allDirs
+      Q -> concat             $ reaches color allDirs
  where
   occupied'   = occupied   brd
   occupiedBy' = occupiedBy brd
-  reaches clr = map (reach brd pos clr)
+  reaches clr = map (reach False brd pos clr)
 
 -- Return available reach in the given direction.
-reach :: Board -> Position -> Player -> Direction -> [Position]
-reach brd position color dir =
+reach :: Bool -> Board -> Position -> Player -> Direction -> [Position]
+reach cover brd position color dir =
   unfoldr ( \(pos, haveCaptured) ->
               if haveCaptured
                 then Nothing
-                else makeMove brd pos color dir
+                else makeMove cover brd pos color dir
           ) (position, False)
 
 -- Make requested move if possible and report whether a piece was captured.
-makeMove :: Board -> Position -> Player -> Direction -> Maybe (Position, (Position, Bool))
-makeMove brd pos color dir = do
+makeMove :: Bool -> Board -> Position -> Player -> Direction -> Maybe (Position, (Position, Bool))
+makeMove cover brd pos color dir = do
   nextPos <- move dir pos
   if occupiedBy brd nextPos color  -- Bumped into one of our own pieces.
-    then Nothing
+    then if cover then Just (nextPos, (nextPos, True))  -- Covering, so count it.
+                  else Nothing                          -- Moving, so don't.
     else if occupiedBy brd nextPos (otherColor color)
            then Just (nextPos, (nextPos, True))
            else Just (nextPos, (nextPos, False))
