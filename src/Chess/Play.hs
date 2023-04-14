@@ -71,7 +71,7 @@ centerByPlayer clr brd =
   sum $ map (length . filter isCenter . coveredPos brd) $ positionsByPlayer clr brd
 
 isCenter :: Position -> Bool
-isCenter (rank, file) = rank > 2 && rank < 5 && file > 2 && file < 5
+isCenter (Position rank file) = rank > 2 && rank < 5 && file > 2 && file < 5
 
 -- All board positions occupied by a piece of the given color.
 positionsByPlayer :: Player -> Board -> [Position]
@@ -83,29 +83,25 @@ positionsByPlayer clr brd =
 
 -- Return the list of positions covered by a piece.
 coveredPos :: Board -> Position -> [Position]
-coveredPos brd pos@(rank, file) = case getSquare pos brd of
-  Nothing     -> []
-  Just square -> case square of
-    Empty                -> []
-    Occupied color piece -> case piece of
-      P -> case color of
-        Wht -> [(rank+1, file-1), (rank+1, file+1)]
-        Blk -> [(rank-1, file-1), (rank-1, file+1)]
-      N -> [ pos'
-           | pos' <- [ (rank+1, file-2)
-                     , (rank+2, file-1)
-                     , (rank+2, file+1)
-                     , (rank+1, file+2)
-                     , (rank-1, file-2)
-                     , (rank-2, file-1)
-                     , (rank-2, file+1)
-                     , (rank-1, file+2)
-                     ]
-            , validPos pos'
-            ]
-      K -> concatMap (take 1) $ reaches color allDirs
-      R -> concat             $ reaches color rectDirs
-      B -> concat             $ reaches color diagDirs
-      Q -> concat             $ reaches color allDirs
+coveredPos brd pos@(Position rank file) = case getSquare pos brd of
+  Empty                -> []
+  Occupied color piece -> case piece of
+    P -> case color of
+      Wht -> mkPositions [(rank+1, file-1), (rank+1, file+1)]
+      Blk -> mkPositions [(rank-1, file-1), (rank-1, file+1)]
+    N -> mkPositions
+           [ (rank+1, file-2)
+           , (rank+2, file-1)
+           , (rank+2, file+1)
+           , (rank+1, file+2)
+           , (rank-1, file-2)
+           , (rank-2, file-1)
+           , (rank-2, file+1)
+           , (rank-1, file+2)
+           ]
+    K -> concatMap (take 1) $ reaches color allDirs
+    R -> concat             $ reaches color rectDirs
+    B -> concat             $ reaches color diagDirs
+    Q -> concat             $ reaches color allDirs
  where
   reaches clr = map (reach True brd pos clr)

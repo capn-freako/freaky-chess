@@ -40,9 +40,7 @@ evalCmd :: Board -> String -> Either String Board
 evalCmd brd cmd = do
   (from, to) <- parseCmd cmd
   if to `elem` validNewPos brd from
-    then case movePiece brd from to of
-           Nothing   -> Left "Invalid board position!"
-           Just brd' -> Right brd'
+    then Right $ movePiece brd from to
     else Left "Requested move is invalid!"
 
 parseCmd :: String -> Either String (Position, Position)
@@ -69,6 +67,6 @@ decodeSquare str = case str of
       rankChar : _ -> let rank = ord rankChar - ord '1'
                           file = ord fileChar - ord 'a'
                           pos  = (rank, file)
-                       in if validPos pos
-                            then Right pos
-                            else Left $ "Invalid position: " ++ fileChar : [rankChar]
+                       in case mkPosition pos of
+                            Nothing   -> Left $ "Invalid position: " ++ fileChar : [rankChar]
+                            Just pos' -> Right pos'

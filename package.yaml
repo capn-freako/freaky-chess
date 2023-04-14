@@ -40,6 +40,10 @@ ghc-options:
 
 library:
   source-dirs: src
+  default-extensions:
+    - DerivingStrategies
+    - GeneralizedNewtypeDeriving
+    - PatternSynonyms
 
 executables:
   freaky-chess-exe:
