@@ -5,11 +5,17 @@
 --
 -- Copyright (c) 2023 David Banas; all rights reserved World wide.
 
-module Chess.Types where
+module Chess.Types
+  ( Position, pattern Position, mkPosition, mkPositions, validPosition
+  , Square (..), getSquare, setSquare, Board (..)
+  , Player (..), Piece (..), Direction (..), diagDirs, rectDirs, allDirs
+  , occupied, occupiedBy, otherColor
+  , newGame, allPos, printBoard
+  ) where
 
 import Control.Monad.State.Lazy
 import Data.HashMap.Strict       (HashMap, fromList)
-import Data.Maybe                (fromJust)
+import Data.Maybe                (mapMaybe)
 import System.Console.ANSI
 
 data Board = Board
@@ -22,7 +28,7 @@ newGame :: Board
 newGame = execState
   ( forM initialPlacements $
       \(pos, square) ->
-        get >>= (put . fromJust . setSquare pos square)
+        get >>= (put . setSquare (UnsafePosition pos) square)
   )
   Board
   { squares = replicate 8 (replicate 8 Empty)
@@ -45,7 +51,7 @@ newGame = execState
     , ((0,5), Occupied Wht B)
     , ((0,6), Occupied Wht N)
     , ((0,7), Occupied Wht R)
-    ] ++ map (\file -> ((1, file), Occupied Wht P)) [0..7] ++
+    ] ++ map (\f -> ((1, f), Occupied Wht P)) [0..7] ++
     [ ((7,0), Occupied Blk R)
     , ((7,1), Occupied Blk N)
     , ((7,2), Occupied Blk B)
@@ -54,14 +60,37 @@ newGame = execState
     , ((7,5), Occupied Blk B)
     , ((7,6), Occupied Blk N)
     , ((7,7), Occupied Blk R)
-    ] ++ map (\file -> ((6, file), Occupied Blk P)) [0..7]
+    ] ++ map (\f -> ((6, f), Occupied Blk P)) [0..7]
 
-type Position = (Rank, File)
-type Rank     = Int
-type File     = Int
+-- "Smart constructor" idiom moves validation from point of use to
+-- point of creation, reducing redundant work.
+newtype Position = UnsafePosition (Int, Int)
+  deriving newtype (Show, Eq)
 
-posValid :: Position -> Bool
-posValid (rank, file) = not (rank < 0 || rank > 7 || file < 0 || file > 7)
+pattern Position :: Int -> Int -> Position
+pattern Position rank file <- UnsafePosition (rank, file)
+
+{-# COMPLETE Position #-}
+
+-- Client code's only mechanism for making a `Position`.
+-- Note the `Maybe`, while the pattern synonym above requires a plain `Position`.
+-- This forces validation/filtration to the point of creation,
+-- under penalty of type checking failure.
+mkPosition :: (Int, Int) -> Maybe Position
+mkPosition rankAndFile =
+  if validPosition rankAndFile
+    then Just (UnsafePosition rankAndFile)
+    else Nothing
+
+-- Turn only the valid elements of a list of coordinates into `Position`s.
+mkPositions :: [(Int, Int)] -> [Position]
+mkPositions = mapMaybe mkPosition
+
+validPosition :: (Int, Int) -> Bool
+validPosition (r, f) = not (r < 0 || r > 7 || f < 0 || f > 7)
+
+-- posValid :: Position -> Bool
+-- posValid (rank, file) = not (rank < 0 || rank > 7 || file < 0 || file > 7)
 
 data Square = Empty
             | Occupied Player Piece
@@ -70,25 +99,21 @@ instance Show Square where
   show Empty                = "   "
   show (Occupied _ piece) = " " ++ show piece ++ " "
 
-getSquare :: Position -> Board -> Maybe Square
-getSquare pos@(rank, file) brd
-  | posValid pos = Just (squares brd !! rank !! file)
-  | otherwise    = Nothing
+getSquare :: Position -> Board -> Square
+getSquare (Position rank file) brd = squares brd !! rank !! file
 
-setSquare :: Position -> Square -> Board -> Maybe Board
-setSquare pos@(rank, file) square brd
-  | posValid pos = Just brd { squares = replace rank
-                                                ( replace file
-                                                          square
-                                                          (squares brd !! rank)
-                                                )
-                                                (squares brd)
-                            }
-  | otherwise    = Nothing
+setSquare :: Position -> Square -> Board -> Board
+setSquare (Position rank file) square brd =
+  brd { squares = replace rank
+                          ( replace file
+                                    square
+                                    (squares brd !! rank)
+                          )
+                          (squares brd)
+      }
  where
   replace :: Int -> a -> [a] -> [a]
   replace ix x xs = take ix xs ++ x : drop (ix + 1) xs
-
 
 data Player = Blk
             | Wht
@@ -122,8 +147,9 @@ allDirs  = diagDirs ++ rectDirs
 
 -- Is the given position occupied by a piece of the given color?
 occupiedBy :: Board -> Position -> Player -> Bool
-occupiedBy brd pos@(rank, file) color =
-  validPos pos && case squares brd !! rank !! file of
+occupiedBy brd (Position rank file) color =
+  -- validPos pos && case squares brd !! rank !! file of
+  case squares brd !! rank !! file of
     Empty          -> False
     Occupied clr _ -> clr == color
 
@@ -133,15 +159,15 @@ occupied brd pos = occupiedBy' Wht || occupiedBy' Blk
   occupiedBy' = occupiedBy brd pos
 
 -- Is the given position valid?
-validPos :: Position -> Bool
-validPos (rank, file) = not (rank < 0 || rank > 7 || file < 0 || file > 7)
+-- validPos :: Position -> Bool
+-- validPos (rank, file) = not (rank < 0 || rank > 7 || file < 0 || file > 7)
 
 otherColor :: Player -> Player
 otherColor Wht = Blk
 otherColor Blk = Wht
 
 allPos :: [Position]
-allPos = [ (rank, file)
+allPos = [ UnsafePosition (rank, file)
          | rank <- [0..7]
          , file <- [0..7]
          ]
@@ -151,7 +177,7 @@ printBoard brd = do
   forM_ (reverse $ zip [0..7] (squares brd)) $ \rank -> do
     putStr $ show $ fst rank + 1
     putStr " "
-    printRank rank
+    _ <- printRank rank
     setSGR [Reset]
     putStrLn ""
   putStrLn "   a  b  c  d  e  f  g  h"
