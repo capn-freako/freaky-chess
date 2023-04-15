@@ -5,11 +5,12 @@
 --
 -- Copyright (c) 2023 David Banas; all rights reserved World wide.
 
+{-# LANGUAGE LambdaCase #-}
+
 module Main (main) where
 
-import Control.Monad            (forM_)
+import Control.Monad            (forM_, foldM)
 import Control.Monad.Extra      (unfoldM)
-import Control.Monad.Tools      ()
 import Data.Char                (ord)
 import System.IO                (hFlush, stdout)
 
@@ -53,20 +54,27 @@ main = do
   forM_ moves print
 
 evalCmd :: Board -> String -> Either String Board
-evalCmd brd cmd = do
-  (from, to) <- parseCmd cmd
-  if to `elem` validNewPos brd from
-    then Right $ movePiece brd from to
-    else Left "Requested move is invalid!"
+evalCmd brd cmd =
+  foldM
+    ( \brd' -> \case
+        Left  msg        -> Left msg
+        Right (from, to) -> do
+          if to `elem` validNewPos brd' from
+            then Right $ movePiece brd' from to
+            else Left  $ "Requested move, " ++ show from ++ " -> " ++ show to ++ ", is invalid!"
+    )
+    brd
+    (parseCmd cmd)
 
-parseCmd :: String -> Either String (Position, Position)
+parseCmd :: String -> [Either String (Position, Position)]
 parseCmd cmd = case words cmd of
-  []            -> Left "Empty command string!"
-  "quit" : _    -> Left "quit"
+  []            -> [Left "Empty command string!"]
+  "quit" : _    -> [Left "quit"]
+  "o-o"  : _    -> [decodeSquares ("h1", "f1"), decodeSquares ("e1", "g1")]
   from   : wrds ->
     case wrds of
-      []     -> Left "Missing destination square!"
-      to : _ -> decodeSquares (from, to)
+      []     -> [Left "Missing destination square!"]
+      to : _ -> [decodeSquares (from, to)]
 
 decodeSquares :: (String, String) -> Either String (Position, Position)
 decodeSquares (wrd1, wrd2) = do
