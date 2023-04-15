@@ -37,11 +37,17 @@ validNewPos brd pos@(Position rank file) = case getSquare pos brd of
   Occupied color piece -> case piece of
     P -> case color of
       Wht -> [pos' | Just pos' <- [mkPosition (rank+1, file)],   not (occupied' pos')]
-          ++ [pos' | Just pos' <- [mkPosition (rank+2, file)],   rank == 1 && not (occupied' pos')]
+          ++ [pos' | Just pos' <- [ mkPosition (rank+2, file)]
+                                  , rank == 1 && not (occupied' pos')
+                                    && not (occupied' $ fromJust $ mkPosition (rank+1, file))
+                                  ]
           ++ [pos' | Just pos' <- [mkPosition (rank+1, file-1)], occupiedBy' pos' Blk]
           ++ [pos' | Just pos' <- [mkPosition (rank+1, file+1)], occupiedBy' pos' Blk]
       Blk -> [pos' | Just pos' <- [mkPosition (rank-1, file)],   not $ occupied' pos']
-          ++ [pos' | Just pos' <- [mkPosition (rank-2, file)],   rank == 6 && not (occupied' pos')]
+          ++ [pos' | Just pos' <- [ mkPosition (rank-2, file)]
+                                  , rank == 6 && not (occupied' pos')
+                                    && not (occupied' $ fromJust $ mkPosition (rank-1, file))
+                                  ]
           ++ [pos' | Just pos' <- [mkPosition (rank-1, file-1)], occupiedBy' pos' Wht]
           ++ [pos' | Just pos' <- [mkPosition (rank-1, file+1)], occupiedBy' pos' Wht]
     N -> [ pos'
