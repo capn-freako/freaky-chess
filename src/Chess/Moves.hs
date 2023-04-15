@@ -57,7 +57,7 @@ validNewPos brd pos@(Position rank file) = case getSquare pos brd of
          , not $ occupiedBy' pos' color
          ]
     K -> concatMap (take 1) (reaches color allDirs)
-         ++ if rank == 0 && file == 4 then [fromJust $ mkPosition (0, 6)] else []  -- castling
+         ++ [fromJust $ mkPosition (0, 6) | rank == 0 && file == 4]  -- castling
     R -> concat             $ reaches color rectDirs
     B -> concat             $ reaches color diagDirs
     Q -> concat             $ reaches color allDirs

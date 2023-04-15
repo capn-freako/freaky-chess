@@ -45,6 +45,7 @@ library:
     - GeneralizedNewtypeDeriving
     - LambdaCase
     - PatternSynonyms
+    - TupleSections
 
 executables:
   freaky-chess-exe:

@@ -7,8 +7,9 @@
 
 module Chess.Play where
 
-import Control.Arrow ((&&&))
-import Data.List (sortOn)
+import Control.Arrow ((&&&), (>>>))
+import Data.Function ((&))
+import Data.List     (sortOn)
 
 import Chess.Types
 import Chess.Moves
@@ -36,7 +37,32 @@ tally :: PlayerScore -> BoardScore
 tally f brd = f Wht brd - f Blk brd
 
 rankBoard :: BoardScore
-rankBoard brd = material brd + mobility brd + center brd
+rankBoard brd = material brd + mobility brd + center brd + pawnStructure brd
+
+-- The following board evaluation heuristics all follow the same pattern
+-- of using the `tally` function, above, in conjunction with a helper
+-- function, which is player-specific.
+-- These helper functions may be written in one of two styles:
+--
+-- * "right-to-left" - Using this style, which tends to be more common
+--     among programmers and mathematicians, a composite function grows
+--     outward, as we move from right to left in the line of code
+--     defining it. So, for instance, the `mobilityByPlayer` function:
+--
+--     * first applies the `positionsByPlayer` function to its arguments,
+--     * then maps the composite function: `length . validNewPos brd`,
+--       over those results, and
+--     * finally, sums the result of that mapping.
+--
+-- * "left-to-right" - Using this style, we do the opposite: send the
+--     arguments into the left side of a "function chain", gathering
+--     the final output at the right end of the line of code.
+--     (See the `pawnStructureByPlayer` function, for an examle of this style.)
+--     This may be a more intuitive way to write heuristics for those
+--     not from a programming or mathematical background.
+--
+-- Note that this style choice is a syntactical one only.
+-- Either style may be used to achieve precisely the same computation.
 
 material :: BoardScore
 material = tally materialByPlayer
@@ -47,6 +73,10 @@ mobility = tally mobilityByPlayer
 center :: BoardScore
 center = tally centerByPlayer
 
+pawnStructure :: BoardScore
+pawnStructure = tally pawnStructureByPlayer
+
+-- Uses "right-to-left" style.
 materialByPlayer :: PlayerScore
 materialByPlayer color brd = sum $ map (total color) $ concat (squares brd)
  where
@@ -62,16 +92,36 @@ materialByPlayer color brd = sum $ map (total color) $ concat (squares brd)
   value Q = 900
   value K = 10000
 
+-- Uses "right-to-left" style.
 mobilityByPlayer :: PlayerScore
 mobilityByPlayer clr brd =
   sum $ map (length . validNewPos brd) $ positionsByPlayer clr brd
 
+-- Uses "right-to-left" style.
 centerByPlayer :: PlayerScore
 centerByPlayer clr brd =
   sum $ map (length . filter isCenter . coveredPos brd) $ positionsByPlayer clr brd
 
 isCenter :: Position -> Bool
 isCenter (Position rank file) = rank > 2 && rank < 5 && file > 2 && file < 5
+
+-- Note: This heuristic is written in "left-to-right" style.
+--
+-- This function counts the number of unique diagonally adjacent pawn pairs.
+--
+-- ToDo: Add penalty for doubled pawns.
+pawnStructureByPlayer :: PlayerScore
+pawnStructureByPlayer clr brd = brd &
+  (positionsByPlayer clr >>> filter (isPawn brd) >>> allPairs >>> filter areDiagAdjacent >>> length)
+
+-- Return all unique pairs of list elements.
+allPairs :: [a] -> [(a, a)]
+allPairs [] = []
+allPairs (x:xs) = map (x,) xs ++ allPairs xs
+
+areDiagAdjacent :: (Position, Position) -> Bool
+areDiagAdjacent (Position rank1 file1, Position rank2 file2) =
+  abs (rank1 - rank2) == 1 && abs (file1 - file2) == 1
 
 -- All board positions occupied by a piece of the given color.
 positionsByPlayer :: Player -> Board -> [Position]

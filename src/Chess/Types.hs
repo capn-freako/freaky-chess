@@ -7,7 +7,7 @@
 
 module Chess.Types
   ( Position, pattern Position, mkPosition, mkPositions, validPosition
-  , Square (..), getSquare, setSquare, Board (..)
+  , Square (..), getSquare, setSquare, Board (..), isPawn
   , Player (..), Piece (..), Direction (..), diagDirs, rectDirs, allDirs
   , occupied, occupiedBy, otherColor
   , newGame, allPos, printBoard
@@ -114,6 +114,11 @@ setSquare (Position rank file) square brd =
  where
   replace :: Int -> a -> [a] -> [a]
   replace ix x xs = take ix xs ++ x : drop (ix + 1) xs
+
+isPawn :: Board -> Position -> Bool
+isPawn brd pos = case getSquare pos brd of
+  Occupied _ P -> True
+  _            -> False
 
 data Player = Blk
             | Wht
