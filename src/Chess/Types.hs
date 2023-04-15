@@ -14,6 +14,7 @@ module Chess.Types
   ) where
 
 import Control.Monad.State.Lazy
+import Data.Char                 (chr)
 import Data.HashMap.Strict       (HashMap, fromList)
 import Data.Maybe                (mapMaybe)
 import System.Console.ANSI
@@ -130,7 +131,30 @@ data Piece = P
            | B
            | Q
            | K
-  deriving (Show)
+
+instance Show Piece where
+  show piece =
+    let val = case piece of
+                P -> 9823
+                B -> 9821
+                N -> 9822
+                R -> 9820
+                Q -> 9819
+                K -> 9818
+     in [chr val]
+
+-- showPiece :: Player -> Piece -> String
+-- showPiece clr piece =
+--   let val = case piece of
+--               P -> 9817
+--               B -> 9815
+--               N -> 9816
+--               R -> 9814
+--               Q -> 9813
+--               K -> 9812
+--    in if clr == Wht
+--         then [chr val]
+--         else [chr (val + 6)]
 
 data Direction = U  -- "N" is used above.
                | NE
@@ -191,8 +215,8 @@ printRank :: (Int, [Square]) -> IO [()]
 printRank (rank, sqrs) =
   forM (zip [0..7] sqrs) $ \(file, square) -> do
     (if ((rank + file) `mod` 2) /= 1
-      then setSGR [SetColor Background Dull  Cyan]
-      else setSGR [SetColor Background Vivid Green])
+      then setSGR [SetColor Background Vivid  Black]
+      else setSGR [SetColor Background Dull White])
     (case square of
       Occupied Wht _ -> setSGR [SetColor Foreground Vivid White]
       _              -> setSGR [SetColor Foreground Dull  Black])
