@@ -43,6 +43,7 @@ library:
   default-extensions:
     - DerivingStrategies
     - GeneralizedNewtypeDeriving
+    - LambdaCase
     - PatternSynonyms
 
 executables:

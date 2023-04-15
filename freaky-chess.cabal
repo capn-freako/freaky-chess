@@ -36,6 +36,7 @@ library
   default-extensions:
       DerivingStrategies
       GeneralizedNewtypeDeriving
+      LambdaCase
       PatternSynonyms
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
