@@ -9,8 +9,9 @@
 
 module Main (main) where
 
-import Control.Monad            (forM_, foldM)
+-- import Control.Monad            (forM_, foldM)
 import Control.Monad.Extra      (unfoldM)
+import Control.Monad.State.Lazy
 import Data.Char                (ord)
 import System.IO                (hFlush, stdout)
 
@@ -20,32 +21,45 @@ import Chess.Types
 
 main :: IO ()
 main = do
-  scores <- flip unfoldM (0, newGame) $ \(score, brd) -> do
-    printBoard brd
-    putStrLn $ "Score: " ++ show score
-    -- Check for mate.
-    let (score', _) = bestMove 1 Wht brd
-        scoreChange = score' - score
-     in if scoreChange > 9000  -- ToDo: This won't detect a stalemate.
-          then do putStrLn "White wins!"
-                  return Nothing
-          else if scoreChange < -9000
-                 then do putStrLn $ "Black wins!"
-                         return Nothing
-                 else do putStr "Move? "  -- Parse, validate, and execute White's move.
-                         hFlush stdout
-                         cmd <- getLine
-                         case evalCmd brd cmd of
-                           Left  msg  -> case msg of
-                                           "quit" -> return Nothing
-                                           _      -> do putStrLn msg
-                                                        return $ Just (score, (score, brd))
-                           -- If White's move is valid then calculate Black's response.
-                           Right brd' -> let (_, brd'') = bestMove 3 Blk brd'
-                                             score''    = rankBoard brd''
-                                          in return $ Just (score'', (score'', brd''))
+  -- unfoldM :: Monad m => (s -> m (Maybe (a, s))) -> s -> m [a]
+  -- s :: [(Int, Board)]
+  -- a :: Int
+  scores <- unfoldM iter [(0, newGame)]
   putStrLn "Finished. Score history:"
   forM_ scores print
+
+iter :: [(Int, Board)] -> IO (Maybe (Int, [(Int, Board)]))
+iter previousMoves = do
+  let (score, brd) = last previousMoves
+  printBoard brd
+  putStrLn $ "Score: " ++ show score
+  -- Check for mate.
+  let (score', _) = bestMove 1 Wht brd
+      scoreChange = score' - score
+   in if scoreChange > 9000  -- ToDo: This won't detect a stalemate.
+        then do putStrLn "White wins!"
+                return Nothing
+        else if scoreChange < -9000
+               then do putStrLn $ "Black wins!"
+                       return Nothing
+               else do putStr "Move? "  -- Parse, validate, and execute White's move.
+                       hFlush stdout
+                       cmd <- getLine
+                       case evalCmd brd cmd of
+                         Left  msg  -> do
+                           case msg of
+                             "quit" -> return Nothing
+                             "back" -> let oldPrevMoves = init previousMoves
+                                           (score'', _) = last $ oldPrevMoves
+                                        in return $ Just (score'', oldPrevMoves)
+                             _      -> do putStrLn msg
+                                          return $ Just (score, previousMoves)
+                         -- If White's move is valid then calculate Black's response.
+                         Right brd' -> do
+                           putStrLn "Thinking..."
+                           let (_, brd'') = bestMove 3 Blk brd'
+                               score''    = rankBoard brd''
+                            in return $ Just (score'', previousMoves ++ [(score'', brd'')])
 
 evalCmd :: Board -> String -> Either String Board
 evalCmd brd cmd =
@@ -64,6 +78,7 @@ parseCmd :: String -> [Either String (Position, Position)]
 parseCmd cmd = case words cmd of
   []            -> [Left "Empty command string!"]
   "quit" : _    -> [Left "quit"]
+  "back" : _    -> [Left "back"]
   "o-o"  : _    -> [decodeSquares ("h1", "f1"), decodeSquares ("e1", "g1")]
   from   : wrds ->
     case wrds of
