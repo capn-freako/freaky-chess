@@ -14,18 +14,19 @@ import Data.List     (sortOn)
 import Chess.Types
 import Chess.Moves
 
-rankMoves :: Player -> Board -> [(Int, Board)]
-rankMoves clr brd =
-  let myMoves = allMoves clr brd
-      clr'    = otherColor clr
-      rslts   = sortOn fst $ map ((bestFor clr' . allMoves clr') &&& id) myMoves
-   in if clr == Blk
-        then rslts
-        else reverse rslts
+-- Choose best move, based on given look ahead, returning score.
+--
+-- Note: The returned score corresponds to a board `n` moves ahead.
+bestMove :: Int -> Player -> Board -> (Int, Board)
+bestMove n clr =
+  let f = case n of
+            0 -> rankBoard                             &&& id
+            _ -> fst . bestMove (n-1) (otherColor clr) &&& id
+   in head . sortFor clr . map f . allMoves clr
  where
-  bestFor :: Player -> [Board] -> Int
-  bestFor Wht = maximum . map rankBoard
-  bestFor Blk = minimum . map rankBoard
+  sortFor :: Ord a => Player -> [(a,b)] -> [(a,b)]
+  sortFor Wht = reverse . sortOn fst
+  sortFor Blk = sortOn fst
 
 allMoves :: Player -> Board -> [Board]
 allMoves clr brd = concatMap (movesFromSquare clr brd) allPos
