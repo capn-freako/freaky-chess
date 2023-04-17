@@ -7,6 +7,8 @@
 
 module Chess.Play where
 
+import qualified Data.Vector as V
+
 import Control.Arrow ((&&&), (>>>))
 import Data.Function ((&))
 import Data.List     (sortOn)
@@ -79,7 +81,7 @@ pawnStructure = tally pawnStructureByPlayer
 
 -- Uses "right-to-left" style.
 materialByPlayer :: PlayerScore
-materialByPlayer color brd = sum $ map (total color) $ concat (squares brd)
+materialByPlayer color brd = V.sum $ V.map (V.sum . V.map (total color)) $ squares brd
  where
   total :: Player -> Square -> Int
   total clr (Occupied clr' piece) | clr' == clr = value piece
@@ -131,6 +133,8 @@ positionsByPlayer clr brd =
   | pos <- allPos
   , occupiedBy brd pos clr
   ]
+
+-- {-# SCC positionsByPlayer #-}
 
 -- Return the list of positions covered by a piece.
 coveredPos :: Board -> Position -> [Position]

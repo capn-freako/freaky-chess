@@ -72,6 +72,8 @@ validNewPos brd pos@(Position rank file) = case getSquare pos brd of
   occupiedBy' = occupiedBy brd
   reaches clr = map (reach False brd pos clr)
 
+-- {-# SCC validNewPos #-}
+
 -- Return available reach in the given direction.
 reach :: Bool -> Board -> Position -> Player -> Direction -> [Position]
 reach cover brd position color dir =
@@ -91,6 +93,8 @@ makeMove cover brd pos color dir = do
     else if occupiedBy brd nextPos (otherColor color)
            then Just (nextPos, (nextPos, True))
            else Just (nextPos, (nextPos, False))
+
+-- {-# SCC makeMove #-}
 
 -- Calculate new position, based on current position and movement direction.
 --

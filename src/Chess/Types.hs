@@ -13,14 +13,17 @@ module Chess.Types
   , newGame, allPos, printBoard
   ) where
 
+import qualified Data.Vector as V
+
 import Control.Monad.State.Lazy
 import Data.Char                 (chr)
 import Data.HashMap.Strict       (HashMap, fromList)
 import Data.Maybe                (mapMaybe)
+import Data.Vector               (Vector, (//), indexed)
 import System.Console.ANSI
 
 data Board = Board
-  { squares  :: [[Square]]
+  { squares  :: Vector (Vector Square)
   , moved    :: HashMap String Bool
   , lastMove :: Maybe Position
   }
@@ -32,16 +35,16 @@ newGame = execState
         get >>= (put . setSquare (UnsafePosition pos) square)
   )
   Board
-  { squares = replicate 8 (replicate 8 Empty)
-  , moved = fromList [ ("WK",  False)
-                     , ("WKR", False)
-                     , ("WQR", False)
-                     , ("BK",  False)
-                     , ("BKR", False)
-                     , ("BQR", False)
-                     ]
-  , lastMove = Nothing
-  }
+    { squares = V.replicate 8 (V.replicate 8 Empty)
+    , moved = fromList [ ("WK",  False)
+                       , ("WKR", False)
+                       , ("WQR", False)
+                       , ("BK",  False)
+                       , ("BKR", False)
+                       , ("BQR", False)
+                       ]
+    , lastMove = Nothing
+    }
  where
   initialPlacements =
     [ ((0,0), Occupied Wht R)
@@ -72,6 +75,7 @@ pattern Position :: Int -> Int -> Position
 pattern Position rank file <- UnsafePosition (rank, file)
 
 {-# COMPLETE Position #-}
+{-# INLINE Position #-}
 
 -- Client code's only mechanism for making a `Position`.
 -- Note the `Maybe`, while the pattern synonym above requires a plain `Position`.
@@ -90,9 +94,6 @@ mkPositions = mapMaybe mkPosition
 validPosition :: (Int, Int) -> Bool
 validPosition (r, f) = not (r < 0 || r > 7 || f < 0 || f > 7)
 
--- posValid :: Position -> Bool
--- posValid (rank, file) = not (rank < 0 || rank > 7 || file < 0 || file > 7)
-
 data Square = Empty
             | Occupied Player Piece
 
@@ -101,20 +102,14 @@ instance Show Square where
   show (Occupied _ piece) = " " ++ show piece ++ " "
 
 getSquare :: Position -> Board -> Square
-getSquare (Position rank file) brd = squares brd !! rank !! file
+getSquare (Position rank file) brd = squares brd V.! rank V.! file
 
 setSquare :: Position -> Square -> Board -> Board
 setSquare (Position rank file) square brd =
-  brd { squares = replace rank
-                          ( replace file
-                                    square
-                                    (squares brd !! rank)
-                          )
-                          (squares brd)
+  brd { squares = theSquares // [(rank, (theSquares V.! rank) // [(file, square)])]
       }
  where
-  replace :: Int -> a -> [a] -> [a]
-  replace ix x xs = take ix xs ++ x : drop (ix + 1) xs
+  theSquares = squares brd
 
 isPawn :: Board -> Position -> Bool
 isPawn brd pos = case getSquare pos brd of
@@ -143,19 +138,6 @@ instance Show Piece where
                 K -> 9818
      in [chr val]
 
--- showPiece :: Player -> Piece -> String
--- showPiece clr piece =
---   let val = case piece of
---               P -> 9817
---               B -> 9815
---               N -> 9816
---               R -> 9814
---               Q -> 9813
---               K -> 9812
---    in if clr == Wht
---         then [chr val]
---         else [chr (val + 6)]
-
 data Direction = U  -- "N" is used above.
                | NE
                | E
@@ -177,19 +159,19 @@ allDirs  = diagDirs ++ rectDirs
 -- Is the given position occupied by a piece of the given color?
 occupiedBy :: Board -> Position -> Player -> Bool
 occupiedBy brd (Position rank file) color =
-  -- validPos pos && case squares brd !! rank !! file of
-  case squares brd !! rank !! file of
-    Empty          -> False
+  case squares brd V.! rank V.! file of
     Occupied clr _ -> clr == color
+    _              -> False
+
+-- {-# SCC occupiedBy #-}
 
 occupied :: Board -> Position -> Bool
-occupied brd pos = occupiedBy' Wht || occupiedBy' Blk
- where
-  occupiedBy' = occupiedBy brd pos
+occupied brd (Position rank file) =
+  case squares brd V.! rank V.! file of
+    Occupied _ _ -> True
+    _            -> False
 
--- Is the given position valid?
--- validPos :: Position -> Bool
--- validPos (rank, file) = not (rank < 0 || rank > 7 || file < 0 || file > 7)
+-- {-# SCC occupied #-}
 
 otherColor :: Player -> Player
 otherColor Wht = Blk
@@ -203,7 +185,7 @@ allPos = [ UnsafePosition (rank, file)
 
 printBoard :: Board -> IO ()
 printBoard brd = do
-  forM_ (reverse $ zip [0..7] (squares brd)) $ \rank -> do
+  V.forM_ (V.reverse $ indexed $ squares brd) $ \rank -> do
     putStr $ show $ fst rank + 1
     putStr " "
     _ <- printRank rank
@@ -211,9 +193,9 @@ printBoard brd = do
     putStrLn ""
   putStrLn "   a  b  c  d  e  f  g  h"
 
-printRank :: (Int, [Square]) -> IO [()]
+printRank :: (Int, Vector Square) -> IO ()
 printRank (rank, sqrs) =
-  forM (zip [0..7] sqrs) $ \(file, square) -> do
+  V.forM_ (indexed sqrs) $ \(file, square) -> do
     (if ((rank + file) `mod` 2) /= 1
       then setSGR [SetColor Background Vivid  Black]
       else setSGR [SetColor Background Dull White])
