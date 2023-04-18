@@ -16,9 +16,9 @@ module Chess.Types
 import qualified Data.Vector as V
 
 import Control.Monad.State.Lazy
-import Data.Char                 (chr)
+import Data.Char                 (chr, ord)
 import Data.HashMap.Strict       (HashMap, fromList)
-import Data.Maybe                (mapMaybe)
+import Data.Maybe                (mapMaybe, fromJust)
 import Data.Vector               (Vector, (//), indexed)
 import System.Console.ANSI
 
@@ -26,13 +26,22 @@ data Board = Board
   { squares  :: Vector (Vector Square)
   , moved    :: HashMap String Bool
   , lastMove :: Maybe Position
+  , occupiedByWht :: [Position]
+  , occupiedByBlk :: [Position]
   }
 
 newGame :: Board
 newGame = execState
   ( forM initialPlacements $
-      \(pos, square) ->
-        get >>= (put . setSquare (UnsafePosition pos) square)
+      \(pos, square) -> case square of
+        Occupied clr _ -> do
+          brd <- get
+          let brd'@(Board _ _ _ whtSquares blkSquares) = setSquare (UnsafePosition pos) square brd
+              brd'' = if clr == Wht
+                        then brd'{occupiedByWht = fromJust (mkPosition pos) : whtSquares}
+                        else brd'{occupiedByBlk = fromJust (mkPosition pos) : blkSquares}
+          put brd''
+        _ -> error "Oops! This should never happen."
   )
   Board
     { squares = V.replicate 8 (V.replicate 8 Empty)
@@ -44,6 +53,8 @@ newGame = execState
                        , ("BQR", False)
                        ]
     , lastMove = Nothing
+    , occupiedByWht = []
+    , occupiedByBlk = []
     }
  where
   initialPlacements =
@@ -69,7 +80,10 @@ newGame = execState
 -- "Smart constructor" idiom moves validation from point of use to
 -- point of creation, reducing redundant work.
 newtype Position = UnsafePosition (Int, Int)
-  deriving newtype (Show, Eq)
+  deriving newtype (Eq)
+
+instance Show Position where
+  show (UnsafePosition (rank, file)) = [chr (ord 'a' + rank), chr (ord '1' + file)]
 
 pattern Position :: Int -> Int -> Position
 pattern Position rank file <- UnsafePosition (rank, file)
@@ -109,7 +123,7 @@ setSquare (Position rank file) square brd =
   brd { squares = theSquares // [(rank, (theSquares V.! rank) // [(file, square)])]
       }
  where
-  theSquares = squares brd
+  theSquares = brd.squares
 
 isPawn :: Board -> Position -> Bool
 isPawn brd pos = case getSquare pos brd of
@@ -158,20 +172,15 @@ allDirs  = diagDirs ++ rectDirs
 
 -- Is the given position occupied by a piece of the given color?
 occupiedBy :: Board -> Position -> Player -> Bool
-occupiedBy brd (Position rank file) color =
-  case squares brd V.! rank V.! file of
-    Occupied clr _ -> clr == color
-    _              -> False
+occupiedBy brd pos Wht = pos `elem` brd.occupiedByWht
+occupiedBy brd pos Blk = pos `elem` brd.occupiedByBlk
 
--- {-# SCC occupiedBy #-}
+{-# INLINE occupiedBy #-}
 
 occupied :: Board -> Position -> Bool
-occupied brd (Position rank file) =
-  case squares brd V.! rank V.! file of
-    Occupied _ _ -> True
-    _            -> False
+occupied brd pos = occupiedBy brd pos Wht || occupiedBy brd pos Blk
 
--- {-# SCC occupied #-}
+{-# INLINE occupied #-}
 
 otherColor :: Player -> Player
 otherColor Wht = Blk

@@ -46,6 +46,7 @@ library:
     - DerivingStrategies
     - GeneralizedNewtypeDeriving
     - LambdaCase
+    - OverloadedRecordDot
     - PatternSynonyms
     - TupleSections
 

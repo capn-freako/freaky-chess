@@ -37,6 +37,7 @@ library
       DerivingStrategies
       GeneralizedNewtypeDeriving
       LambdaCase
+      OverloadedRecordDot
       PatternSynonyms
       TupleSections
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2

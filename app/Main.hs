@@ -6,13 +6,14 @@
 -- Copyright (c) 2023 David Banas; all rights reserved World wide.
 
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Main (main) where
 
--- import Control.Monad            (forM_, foldM)
 import Control.Monad.Extra      (unfoldM)
 import Control.Monad.State.Lazy
 import Data.Char                (ord)
+-- import Data.Foldable            (foldl')
 import System.IO                (hFlush, stdout)
 
 import Chess.Moves
@@ -21,9 +22,6 @@ import Chess.Types
 
 main :: IO ()
 main = do
-  -- unfoldM :: Monad m => (s -> m (Maybe (a, s))) -> s -> m [a]
-  -- s :: [(Int, Board)]
-  -- a :: Int
   scores <- unfoldM iter [(0, newGame)]
   putStrLn "Finished. Score history:"
   forM_ scores print
@@ -62,18 +60,41 @@ iter previousMoves = do
                             in return $ Just (score'', previousMoves ++ [(score'', brd'')])
 
 evalCmd :: Board -> String -> Either String Board
-evalCmd brd cmd =
-  foldM
-    ( \brd' -> \case
-        Left  msg        -> Left msg
-        Right (from, to) -> do
-          if to `elem` validNewPos brd' from
-            then Right $ movePiece brd' from to
-            else Left  $ "Requested move, " ++ show from ++ " -> " ++ show to ++ ", is invalid!"
-    )
-    brd
-    (parseCmd cmd)
+evalCmd brd cmd = case parsedCmds of
+  [] -> Left "Empty list from parseCmd!"
+  -- mv : _ -> mv >>= \(from, to) ->
+  mv : _ -> case mv of
+    Right (from, to) ->
+      if from `elem` brd.occupiedByWht
+        then let possibleTos = validNewPos brd from
+              in if to `elem` possibleTos
+                   then Right $ movePiece brd from to
+                   else Left  $ "Requested move, " ++ show from ++ " -> " ++ show to ++ ", is invalid!\n"
+                                ++ "  Valid destination squares are: " ++ show possibleTos ++ "\n"
+                                ++ "  Received command: " ++ cmd ++ "\n"
+                                ++ "  Parsed command: " ++ show parsedCmds
+        else Left $ "Square " ++ show from ++ " does not contain a white piece!"
+    Left err -> Left err
+  -- foldM
+  --   ( \brd' -> \case
+  --       Left  msg        -> Left msg
+  --       Right (from, to) ->
+  --         if from `elem` brd'.occupiedByWht
+  --           then let possibleTos = validNewPos brd' from
+  --                 in if to `elem` possibleTos
+  --                      then Right $ movePiece brd' from to
+  --                      else Left  $ "Requested move, " ++ show from ++ " -> " ++ show to ++ ", is invalid!\n"
+  --                                   ++ "  Valid destination squares are: " ++ show possibleTos ++ "\n"
+  --                                   ++ "  Received command: " ++ cmd ++ "\n"
+  --                                   ++ "  Parsed command: " ++ show parsedCmds
+  --           else Left $ "Square " ++ show from ++ " does not contain a white piece!"
+  --   )
+  --   brd
+  --   parsedCmds
+ where
+  parsedCmds = parseCmd cmd
 
+-- List supports castling, which requires two moves.
 parseCmd :: String -> [Either String (Position, Position)]
 parseCmd cmd = case words cmd of
   []            -> [Left "Empty command string!"]

@@ -7,7 +7,7 @@
 
 module Chess.Moves where
 
-import Data.List  (unfoldr)
+import Data.List  (unfoldr, delete)
 import Data.Maybe (fromJust)
 
 import Chess.Types
@@ -23,12 +23,15 @@ movesFromSquare color brd pos = case getSquare pos brd of
                                    ]
 
 movePiece :: Board -> Position -> Position -> Board
-movePiece brd oldPos newPos =
-  let sqr = getSquare oldPos brd
-   in setSquare newPos sqr $ setSquare oldPos Empty brd
-  -- square <- getSquare oldPos brd
-  -- setSquare oldPos Empty brd >>= setSquare newPos square
-
+movePiece brd@(Board _ _ _ whtSquares blkSquares) oldPos newPos =
+  case getSquare oldPos brd of
+    sqr@(Occupied clr _) ->
+      let newBoard = setSquare newPos sqr $ setSquare oldPos Empty brd
+       in case clr of
+            Wht -> newBoard{occupiedByWht = newPos : delete oldPos whtSquares}
+            Blk -> newBoard{occupiedByBlk = newPos : delete oldPos blkSquares}
+    _ -> error "Oops! This should never happen."
+    
 -- Return the list of valid new positions for a piece.
 -- ToDo: add "en passat" P move.
 validNewPos :: Board -> Position -> [Position]
@@ -72,8 +75,6 @@ validNewPos brd pos@(Position rank file) = case getSquare pos brd of
   occupiedBy' = occupiedBy brd
   reaches clr = map (reach False brd pos clr)
 
--- {-# SCC validNewPos #-}
-
 -- Return available reach in the given direction.
 reach :: Bool -> Board -> Position -> Player -> Direction -> [Position]
 reach cover brd position color dir =
@@ -93,8 +94,6 @@ makeMove cover brd pos color dir = do
     else if occupiedBy brd nextPos (otherColor color)
            then Just (nextPos, (nextPos, True))
            else Just (nextPos, (nextPos, False))
-
--- {-# SCC makeMove #-}
 
 -- Calculate new position, based on current position and movement direction.
 --
