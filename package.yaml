@@ -47,6 +47,7 @@ library:
     - GeneralizedNewtypeDeriving
     - LambdaCase
     - OverloadedRecordDot
+    - ParallelListComp
     - PatternSynonyms
     - TupleSections
 

@@ -99,7 +99,36 @@ materialByPlayer color brd = V.sum $ V.map (V.sum . V.map (total color)) $ squar
 -- Uses "right-to-left" style.
 mobilityByPlayer :: PlayerScore
 mobilityByPlayer clr brd =
-  sum $ map (length . validNewPos brd) $ positionsByPlayer brd clr
+  sum $ map (totalSpan brd clr) $ positionsByPlayer brd clr
+
+-- A more efficient mobility calculator.
+totalSpan :: Board -> Player -> Position -> Int
+totalSpan brd color pos = case getSquare pos brd of
+  Occupied _ P -> length $ validNewPos brd pos
+  Occupied _ N -> length $ validNewPos brd pos
+  Occupied _ B -> sum $ map (reachLen brd color pos) diagDirs
+  Occupied _ R -> sum $ map (reachLen brd color pos) rectDirs
+  Occupied _ Q -> sum $ map (reachLen brd color pos) allDirs
+  Occupied _ K -> sum $ map (reachLen brd color pos) allDirs
+  Empty        -> 0
+
+-- Reachable distance from position in given direction.
+reachLen :: Board -> Player -> Position -> Direction -> Int
+reachLen brd clr pos dir = reachCount 0 brd clr positions
+ where
+  positions = case getSquare pos brd of
+    Occupied _ K -> take 1 poss  -- King can only move one square in any direction.
+    _            -> poss
+  poss = directionSpan pos dir
+
+reachCount :: Int -> Board -> Player -> [Position] -> Int
+reachCount n _   _   []     = n
+reachCount n brd clr (p:ps) =
+  if occupiedBy brd p clr                      -- Have we bumped into one of our own pieces?
+    then n
+    else if occupiedBy brd p (otherColor clr)  -- Have we bumped into a piece of the other color?
+           then n+1                            -- Ability to capture extends our reach by one square.
+           else reachCount (n+1) brd clr ps    -- Still unobstructed; continue counting.
 
 -- Uses "right-to-left" style.
 centerByPlayer :: PlayerScore

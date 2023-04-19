@@ -8,7 +8,7 @@
 module Chess.Types
   ( Position, pattern Position, mkPosition, mkPositions, validPosition
   , Square (..), getSquare, setSquare, Board (..), isPawn
-  , Player (..), Piece (..), Direction (..), diagDirs, rectDirs, allDirs
+  , Player (..), Piece (..), Direction (..), diagDirs, rectDirs, allDirs, directionSpan
   , occupied, occupiedBy, otherColor
   , newGame, allPos, printBoard
   ) where
@@ -108,6 +108,8 @@ mkPositions = mapMaybe mkPosition
 validPosition :: (Int, Int) -> Bool
 validPosition (r, f) = not (r < 0 || r > 7 || f < 0 || f > 7)
 
+{-# INLINE validPosition #-}
+
 data Square = Empty
             | Occupied Player Piece
 
@@ -172,6 +174,18 @@ rectDirs = [U, S, E, L]
 allDirs :: [Direction]
 allDirs  = diagDirs ++ rectDirs
 
+-- Efficient generation of radial from position to board edge.
+directionSpan :: Position -> Direction -> [Position]
+directionSpan (Position rank file) = \case
+  U  -> [UnsafePosition (r,    file) | r <- [(rank+1)..7]]
+  NE -> [UnsafePosition (r,    f)    | r <- [(rank+1)..7] | f <- [(file+1)..7]]
+  E  -> [UnsafePosition (rank, f)    | f <- [(file+1)..7]]
+  SE -> [UnsafePosition (r,    f)    | r <- reverse [0..(rank-1)] | f <- [(file+1)..7]]
+  S  -> [UnsafePosition (r,    file) | r <- reverse [0..(rank-1)]]
+  SW -> [UnsafePosition (r,    f)    | r <- reverse [0..(rank+1)] | f <- reverse [0..(file+1)]]
+  L  -> [UnsafePosition (rank, f)    | f <- reverse [0..(file-1)]]
+  NW -> [UnsafePosition (r,    f)    | r <- [(rank+1)..7] | f <- reverse [0..(file+1)]]
+  
 -- Is the given position occupied by a piece of the given color?
 occupiedBy :: Board -> Position -> Player -> Bool
 occupiedBy brd pos Wht = pos `elem` brd.occupiedByWht
