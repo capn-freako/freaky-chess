@@ -104,13 +104,13 @@ mobilityByPlayer clr brd =
 -- A more efficient mobility calculator.
 totalSpan :: Board -> Player -> Position -> Int
 totalSpan brd color pos = case getSquare pos brd of
-  Occupied _ P -> length $ validNewPos brd pos
+  -- Occupied _ P -> length $ validNewPos brd pos
   Occupied _ N -> length $ validNewPos brd pos
   Occupied _ B -> sum $ map (reachLen brd color pos) diagDirs
   Occupied _ R -> sum $ map (reachLen brd color pos) rectDirs
   Occupied _ Q -> sum $ map (reachLen brd color pos) allDirs
-  Occupied _ K -> sum $ map (reachLen brd color pos) allDirs
-  Empty        -> 0
+  -- Occupied _ K -> sum $ map (reachLen brd color pos) allDirs
+  _            -> 0
 
 -- Reachable distance from position in given direction.
 reachLen :: Board -> Player -> Position -> Direction -> Int
