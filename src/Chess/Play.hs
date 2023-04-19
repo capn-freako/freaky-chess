@@ -7,6 +7,8 @@
 
 module Chess.Play where
 
+import qualified Data.Vector as V
+
 import Control.Arrow ((&&&), (>>>))
 import Data.Function ((&))
 import Data.List     (sortOn)
@@ -28,6 +30,7 @@ bestMove n clr =
   sortFor Wht = reverse . sortOn fst
   sortFor Blk = sortOn fst
 
+-- ToDo: Change `allPos` to just occupied squares.
 allMoves :: Player -> Board -> [Board]
 allMoves clr brd = concatMap (movesFromSquare clr brd) allPos
 
@@ -79,7 +82,7 @@ pawnStructure = tally pawnStructureByPlayer
 
 -- Uses "right-to-left" style.
 materialByPlayer :: PlayerScore
-materialByPlayer color brd = sum $ map (total color) $ concat (squares brd)
+materialByPlayer color brd = V.sum $ V.map (V.sum . V.map (total color)) $ squares brd
  where
   total :: Player -> Square -> Int
   total clr (Occupied clr' piece) | clr' == clr = value piece
@@ -96,12 +99,41 @@ materialByPlayer color brd = sum $ map (total color) $ concat (squares brd)
 -- Uses "right-to-left" style.
 mobilityByPlayer :: PlayerScore
 mobilityByPlayer clr brd =
-  sum $ map (length . validNewPos brd) $ positionsByPlayer clr brd
+  sum $ map (totalSpan brd clr) $ positionsByPlayer brd clr
+
+-- A more efficient mobility calculator.
+totalSpan :: Board -> Player -> Position -> Int
+totalSpan brd color pos = case getSquare pos brd of
+  -- Occupied _ P -> length $ validNewPos brd pos
+  Occupied _ N -> length $ validNewPos brd pos
+  Occupied _ B -> sum $ map (reachLen brd color pos) diagDirs
+  Occupied _ R -> sum $ map (reachLen brd color pos) rectDirs
+  Occupied _ Q -> sum $ map (reachLen brd color pos) allDirs
+  -- Occupied _ K -> sum $ map (reachLen brd color pos) allDirs
+  _            -> 0
+
+-- Reachable distance from position in given direction.
+reachLen :: Board -> Player -> Position -> Direction -> Int
+reachLen brd clr pos dir = reachCount 0 brd clr positions
+ where
+  positions = case getSquare pos brd of
+    Occupied _ K -> take 1 poss  -- King can only move one square in any direction.
+    _            -> poss
+  poss = directionSpan pos dir
+
+reachCount :: Int -> Board -> Player -> [Position] -> Int
+reachCount n _   _   []     = n
+reachCount n brd clr (p:ps) =
+  if occupiedBy brd p clr                      -- Have we bumped into one of our own pieces?
+    then n
+    else if occupiedBy brd p (otherColor clr)  -- Have we bumped into a piece of the other color?
+           then n+1                            -- Ability to capture extends our reach by one square.
+           else reachCount (n+1) brd clr ps    -- Still unobstructed; continue counting.
 
 -- Uses "right-to-left" style.
 centerByPlayer :: PlayerScore
 centerByPlayer clr brd =
-  sum $ map (length . filter isCenter . coveredPos brd) $ positionsByPlayer clr brd
+  sum $ map (length . filter isCenter . coveredPos brd) $ positionsByPlayer brd clr
 
 isCenter :: Position -> Bool
 isCenter (Position rank file) = rank > 2 && rank < 5 && file > 2 && file < 5
@@ -112,8 +144,8 @@ isCenter (Position rank file) = rank > 2 && rank < 5 && file > 2 && file < 5
 --
 -- ToDo: Add penalty for doubled pawns.
 pawnStructureByPlayer :: PlayerScore
-pawnStructureByPlayer clr brd = brd &
-  (positionsByPlayer clr >>> filter (isPawn brd) >>> allPairs >>> filter areDiagAdjacent >>> length)
+pawnStructureByPlayer clr brd = clr &
+  (positionsByPlayer brd >>> filter (isPawn brd) >>> allPairs >>> filter areDiagAdjacent >>> length)
 
 -- Return all unique pairs of list elements.
 allPairs :: [a] -> [(a, a)]
@@ -125,12 +157,12 @@ areDiagAdjacent (Position rank1 file1, Position rank2 file2) =
   abs (rank1 - rank2) == 1 && abs (file1 - file2) == 1
 
 -- All board positions occupied by a piece of the given color.
-positionsByPlayer :: Player -> Board -> [Position]
-positionsByPlayer clr brd =
-  [ pos
-  | pos <- allPos
-  , occupiedBy brd pos clr
-  ]
+positionsByPlayer :: Board -> Player -> [Position]
+positionsByPlayer brd = \case
+  Wht -> brd.occupiedByWht
+  Blk -> brd.occupiedByBlk
+
+{-# INLINE positionsByPlayer #-}
 
 -- Return the list of positions covered by a piece.
 coveredPos :: Board -> Position -> [Position]

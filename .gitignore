@@ -4,3 +4,4 @@
 *.lock
 report.html
 .DS_Store
+*.prof

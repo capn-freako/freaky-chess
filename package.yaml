@@ -25,6 +25,7 @@ dependencies:
 - monad-extras
 - mtl
 - unordered-containers
+- vector
 - yjtools
 
 ghc-options:
@@ -37,6 +38,7 @@ ghc-options:
 - -Wmissing-home-modules
 - -Wpartial-fields
 - -Wredundant-constraints
+- -O2
 
 library:
   source-dirs: src
@@ -44,6 +46,8 @@ library:
     - DerivingStrategies
     - GeneralizedNewtypeDeriving
     - LambdaCase
+    - OverloadedRecordDot
+    - ParallelListComp
     - PatternSynonyms
     - TupleSections
 
@@ -55,6 +59,9 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    # - -fno-prof-auto
+    # - -fno-prof-cafs
+    # - -fforce-recomp
     dependencies:
     - freaky-chess
 
