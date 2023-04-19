@@ -30,6 +30,7 @@ bestMove n clr =
   sortFor Wht = reverse . sortOn fst
   sortFor Blk = sortOn fst
 
+-- ToDo: Change `allPos` to just occupied squares.
 allMoves :: Player -> Board -> [Board]
 allMoves clr brd = concatMap (movesFromSquare clr brd) allPos
 
@@ -133,8 +134,6 @@ positionsByPlayer clr brd =
   | pos <- allPos
   , occupiedBy brd pos clr
   ]
-
--- {-# SCC positionsByPlayer #-}
 
 -- Return the list of positions covered by a piece.
 coveredPos :: Board -> Position -> [Position]

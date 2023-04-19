@@ -27,11 +27,16 @@ movePiece brd@(Board _ _ _ whtSquares blkSquares) oldPos newPos =
   case getSquare oldPos brd of
     sqr@(Occupied clr _) ->
       let newBoard = setSquare newPos sqr $ setSquare oldPos Empty brd
-       in case clr of
+          rsltBoard = case clr of
             Wht -> newBoard{occupiedByWht = newPos : delete oldPos whtSquares}
             Blk -> newBoard{occupiedByBlk = newPos : delete oldPos blkSquares}
+       in case getSquare newPos brd of  -- Handle capture if necessary.
+            Occupied clr' _ -> case clr' of  -- Capture occured.
+              Wht -> rsltBoard{occupiedByWht = delete newPos rsltBoard.occupiedByWht}
+              Blk -> rsltBoard{occupiedByBlk = delete newPos rsltBoard.occupiedByBlk}
+            _ -> rsltBoard  -- No capture occured.
     _ -> error "Oops! This should never happen."
-    
+
 -- Return the list of valid new positions for a piece.
 -- ToDo: add "en passat" P move.
 validNewPos :: Board -> Position -> [Position]

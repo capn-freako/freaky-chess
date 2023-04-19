@@ -83,7 +83,7 @@ newtype Position = UnsafePosition (Int, Int)
   deriving newtype (Eq)
 
 instance Show Position where
-  show (UnsafePosition (rank, file)) = [chr (ord 'a' + rank), chr (ord '1' + file)]
+  show (UnsafePosition (rank, file)) = [chr (ord 'a' + file), chr (ord '1' + rank)]
 
 pattern Position :: Int -> Int -> Position
 pattern Position rank file <- UnsafePosition (rank, file)
