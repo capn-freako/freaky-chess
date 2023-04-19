@@ -27,7 +27,8 @@ with open("freaky-chess-exe.prof", 'rt') as file:
             print(line.rstrip())
         else:
             toks = line.split()
-            if toks and "occupiedBy" in toks[0] and int(toks[4]) > 150_000_000:
+            # if toks and "occupiedBy" in toks[0] and int(toks[4]) > 150_000_000:
+            if toks and "validNewPos.occupied'" in toks[0] and int(toks[4]) > 10_000_000:
                 _indent = indent(line)
                 _ix = ix - 1
                 _lines_to_print = []

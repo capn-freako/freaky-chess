@@ -99,12 +99,12 @@ materialByPlayer color brd = V.sum $ V.map (V.sum . V.map (total color)) $ squar
 -- Uses "right-to-left" style.
 mobilityByPlayer :: PlayerScore
 mobilityByPlayer clr brd =
-  sum $ map (length . validNewPos brd) $ positionsByPlayer clr brd
+  sum $ map (length . validNewPos brd) $ positionsByPlayer brd clr
 
 -- Uses "right-to-left" style.
 centerByPlayer :: PlayerScore
 centerByPlayer clr brd =
-  sum $ map (length . filter isCenter . coveredPos brd) $ positionsByPlayer clr brd
+  sum $ map (length . filter isCenter . coveredPos brd) $ positionsByPlayer brd clr
 
 isCenter :: Position -> Bool
 isCenter (Position rank file) = rank > 2 && rank < 5 && file > 2 && file < 5
@@ -115,8 +115,8 @@ isCenter (Position rank file) = rank > 2 && rank < 5 && file > 2 && file < 5
 --
 -- ToDo: Add penalty for doubled pawns.
 pawnStructureByPlayer :: PlayerScore
-pawnStructureByPlayer clr brd = brd &
-  (positionsByPlayer clr >>> filter (isPawn brd) >>> allPairs >>> filter areDiagAdjacent >>> length)
+pawnStructureByPlayer clr brd = clr &
+  (positionsByPlayer brd >>> filter (isPawn brd) >>> allPairs >>> filter areDiagAdjacent >>> length)
 
 -- Return all unique pairs of list elements.
 allPairs :: [a] -> [(a, a)]
@@ -128,12 +128,12 @@ areDiagAdjacent (Position rank1 file1, Position rank2 file2) =
   abs (rank1 - rank2) == 1 && abs (file1 - file2) == 1
 
 -- All board positions occupied by a piece of the given color.
-positionsByPlayer :: Player -> Board -> [Position]
-positionsByPlayer clr brd =
-  [ pos
-  | pos <- allPos
-  , occupiedBy brd pos clr
-  ]
+positionsByPlayer :: Board -> Player -> [Position]
+positionsByPlayer brd = \case
+  Wht -> brd.occupiedByWht
+  Blk -> brd.occupiedByBlk
+
+{-# INLINE positionsByPlayer #-}
 
 -- Return the list of positions covered by a piece.
 coveredPos :: Board -> Position -> [Position]

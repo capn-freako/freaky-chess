@@ -118,6 +118,8 @@ instance Show Square where
 getSquare :: Position -> Board -> Square
 getSquare (Position rank file) brd = squares brd V.! rank V.! file
 
+{-# INLINE getSquare #-}
+
 setSquare :: Position -> Square -> Board -> Board
 setSquare (Position rank file) square brd =
   brd { squares = theSquares // [(rank, (theSquares V.! rank) // [(file, square)])]
@@ -185,6 +187,8 @@ occupied brd pos = occupiedBy brd pos Wht || occupiedBy brd pos Blk
 otherColor :: Player -> Player
 otherColor Wht = Blk
 otherColor Blk = Wht
+
+{-# INLINE otherColor #-}
 
 allPos :: [Position]
 allPos = [ UnsafePosition (rank, file)

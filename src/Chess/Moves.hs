@@ -90,15 +90,23 @@ reach cover brd position color dir =
           ) (position, False)
 
 -- Make requested move if possible and report whether a piece was captured.
+--
+-- If the first argument is true then check _coverage_, as opposed to _mobillity_.
 makeMove :: Bool -> Board -> Position -> Player -> Direction -> Maybe (Position, (Position, Bool))
 makeMove cover brd pos color dir = do
   nextPos <- move dir pos
-  if occupiedBy brd nextPos color  -- Bumped into one of our own pieces.
-    then if cover then Just (nextPos, (nextPos, True))  -- Covering, so count it.
-                  else Nothing                          -- Moving, so don't.
-    else if occupiedBy brd nextPos (otherColor color)
-           then Just (nextPos, (nextPos, True))
-           else Just (nextPos, (nextPos, False))
+  case getSquare nextPos brd of
+    Occupied clr _ ->
+      if cover || (clr == otherColor color)
+        then return (nextPos, (nextPos, True))  -- We're either covering or we just captured.
+        else Nothing
+    _ -> return (nextPos, (nextPos, False))
+  -- if occupiedBy brd nextPos color  -- Bumped into one of our own pieces.
+  --   then if cover then Just (nextPos, (nextPos, True))  -- Covering, so count it.
+  --                 else Nothing                          -- Moving, so don't.
+  --   else if occupiedBy brd nextPos (otherColor color)
+  --          then Just (nextPos, (nextPos, True))
+  --          else Just (nextPos, (nextPos, False))
 
 -- Calculate new position, based on current position and movement direction.
 --
