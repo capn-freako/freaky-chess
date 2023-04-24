@@ -19,13 +19,13 @@ import Chess.Moves
 -- Choose best move, based on given look ahead, returning score.
 --
 -- Note: The returned score corresponds to a board `n` moves ahead.
-bestMove :: Int -> Player -> Board -> ((Int, Board), Int)
+bestMove :: Int -> Player -> Board -> ((Int, Board), Int)  -- ((score, board), # of moves tried)
 bestMove n clr brd = case n of
   0 -> ((head $ sortFor clr (sortOn fst) $ map (rankBoard &&& id) newBoards), length newBoards)
   _ -> let clr'        = otherColor clr
            nextResults = map ((bestMove (n-1) clr') &&& id) newBoards
            nMoves      = sum $ map (snd . fst) nextResults
-           (((futureScore, _), _), bestMv) = head $ sortFor clr' sortNextResults $ nextResults
+           (((futureScore, _), _), bestMv) = head $ sortFor clr sortNextResults $ nextResults
         in ((futureScore, bestMv), nMoves)
  where
   sortNextResults :: Ord a => [(((a,b), c), Board)] -> [(((a,b), c), Board)]
@@ -111,12 +111,10 @@ mobilityByPlayer clr brd =
 -- A more efficient mobility calculator.
 totalSpan :: Board -> Player -> Position -> Int
 totalSpan brd color pos = case getSquare pos brd of
-  -- Occupied _ P -> length $ validNewPos brd pos
   Occupied _ N -> length $ validNewPos brd pos
   Occupied _ B -> sum $ map (reachLen brd color pos) diagDirs
   Occupied _ R -> sum $ map (reachLen brd color pos) rectDirs
   Occupied _ Q -> sum $ map (reachLen brd color pos) allDirs
-  -- Occupied _ K -> sum $ map (reachLen brd color pos) allDirs
   _            -> 0
 
 -- Reachable distance from position in given direction.

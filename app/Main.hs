@@ -11,6 +11,7 @@
 
 module Main (main) where
 
+import Control.Foldl            (mean, fold)
 import Control.Monad.Extra      (unfoldM)
 import Control.Monad.State.Lazy
 import Data.Char                (ord)
@@ -23,17 +24,17 @@ import Chess.Types
 
 main :: IO ()
 main = do
-  scores <- unfoldM iter [(0, newGame)]
-  putStrLn "Finished. Score history:"
+  (scores, perfs) <- unzip <$> unfoldM iter [(0, newGame, 0)]
+  putStrLn "Finished."
+  putStrLn $ "Average performance: " ++ show (round $ fold mean $ map fromIntegral perfs) ++ " Moves/s"
+  putStrLn "Score history:"
   forM_ scores print
 
-iter :: [(Int, Board)] -> IO (Maybe (Int, [(Int, Board)]))
+iter :: [(Int, Board, Int)] -> IO (Maybe ((Int, Int), [(Int, Board, Int)]))
 iter previousMoves = do
-  let (score, brd) = last previousMoves
+  let (score, brd, perf) = last previousMoves
   printBoard brd
   putStrLn $ "Score: " ++ show score
-  -- putStrLn $ "Occupied by White: " ++ show brd.occupiedByWht
-  -- putStrLn $ "Occupied by Black: " ++ show brd.occupiedByBlk
   -- Check for mate.
   let ((score', _), _) = bestMove 1 Wht brd
       scoreChange = score' - score
@@ -51,21 +52,22 @@ iter previousMoves = do
                            case msg of
                              "quit" -> return Nothing
                              "back" -> let oldPrevMoves = init previousMoves
-                                           (score'', _) = last $ oldPrevMoves
-                                        in return $ Just (score'', oldPrevMoves)
+                                           (score'', _, perf'') = last $ oldPrevMoves
+                                        in return $ Just ((score'', perf''), oldPrevMoves)
                              _      -> do putStrLn msg
-                                          return $ Just (score, previousMoves)
+                                          return $ Just ((score, perf), previousMoves)
                          -- If White's move is valid then calculate Black's response.
                          Right brd' -> do
                            putStr "Thinking..."
+                           hFlush stdout
                            (nSecs, (nMoves, score'', brd'')) <- timeItT $ do
                              let ((!futureScore, !brd''), !nMoves) = bestMove 3 Blk brd'
                                  !score''                          = rankBoard brd''
                              return (nMoves, score'', brd'')
-                           let perf = round $ fromIntegral nMoves / nSecs
+                           let perf'' = round $ fromIntegral nMoves / nSecs
                            putStrLn $ "Done. " ++ show nMoves ++ " moves tried in "
-                             ++ show nSecs ++ " seconds (" ++ show perf ++ " moves/s)."
-                           return $ Just (score'', previousMoves ++ [(score'', brd'')])
+                             ++ show nSecs ++ " seconds (" ++ show perf'' ++ " moves/s)."
+                           return $ Just ((score'', perf''), previousMoves ++ [(score'', brd'', perf'')])
 
 evalCmd :: Board -> String -> Either String Board
 evalCmd brd cmd =
