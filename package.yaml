@@ -22,9 +22,11 @@ description:         Please see the README on GitHub at <https://github.com/capn
 dependencies:
 - base >= 4.7 && < 5
 - ansi-terminal
+- foldl
 - monad-extras
 - mtl
 - unordered-containers
+- timeit
 - vector
 - yjtools
 
