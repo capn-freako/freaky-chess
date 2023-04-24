@@ -5,7 +5,7 @@
 --
 -- Copyright (c) 2023 David Banas; all rights reserved World wide.
 
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Chess.Types
   ( Position, pattern Position, mkPosition, mkPositions, validPosition
@@ -13,6 +13,7 @@ module Chess.Types
   , Player (..), Piece (..), Direction (..), diagDirs, rectDirs, allDirs, directionSpan
   , occupied, occupiedBy, otherColor
   , newGame, allPos, printBoard
+  , squares, occupiedByWht, occupiedByBlk, moved, lastMove
   ) where
 
 import qualified Data.Vector as V
@@ -45,6 +46,8 @@ pattern Position rank file <- UnsafePosition (rank, file)
 -- Note the `Maybe`, while the pattern synonym above requires a plain `Position`.
 -- This forces validation/filtration to the point of creation,
 -- under penalty of type checking failure.
+--
+-- Many thanks to Daniel Winograd Cort for this addition!
 mkPosition :: (Int, Int) -> Maybe Position
 mkPosition rankAndFile =
   if validPosition rankAndFile
@@ -138,15 +141,14 @@ directionSpan (Position rank file) = \case
   
 data Board = Board
   { _squares  :: Vector (Vector Square)
-  , moved    :: HashMap String Bool
-  , lastMove :: Maybe Position
+  , _moved    :: HashMap String Bool
+  , _lastMove :: Maybe Position
   , _occupiedByWht :: [Position]
   , _occupiedByBlk :: [Position]
   }
 
 $(makeLenses ''Board)
-
--- shiftAtomX = over (point . x) (+ 1)
+$(makePrisms ''Board)
 
 newGame :: Board
 newGame = execState
@@ -159,24 +161,18 @@ newGame = execState
                        >>> if clr == Wht
                              then over occupiedByWht consNewPos
                              else over occupiedByBlk consNewPos
-          -- brd <- get
-          -- let brd'@(Board _ _ _ whtSquares blkSquares) = setSquare (UnsafePosition pos) square brd
-          --     brd'' = if clr == Wht
-          --               then brd'{occupiedByWht = fromJust (mkPosition pos) : whtSquares}
-          --               else brd'{occupiedByBlk = fromJust (mkPosition pos) : blkSquares}
-          -- put brd''
             _ -> error "Oops! This should never happen."
   )
   Board
     { _squares = V.replicate 8 (V.replicate 8 Empty)
-    , moved = fromList [ ("WK",  False)
+    , _moved = fromList [ ("WK",  False)
                        , ("WKR", False)
                        , ("WQR", False)
                        , ("BK",  False)
                        , ("BKR", False)
                        , ("BQR", False)
                        ]
-    , lastMove = Nothing
+    , _lastMove = Nothing
     , _occupiedByWht = []
     , _occupiedByBlk = []
     }

@@ -71,6 +71,7 @@ validNewPos brd pos@(Position rank file) = case getSquare pos brd of
          , not $ occupiedBy' pos' color
          ]
     K -> concatMap (take 1) (reaches color allDirs)
+         ++ [fromJust $ mkPosition (0, 6) | rank == 0 && file == 4 && color == Wht]  -- castling
     R -> concat             $ reaches color rectDirs
     B -> concat             $ reaches color diagDirs
     Q -> concat             $ reaches color allDirs
@@ -100,12 +101,6 @@ makeMove cover brd pos color dir = do
         then return (nextPos, (nextPos, True))  -- We're either covering or we just captured.
         else Nothing
     _ -> return (nextPos, (nextPos, False))
-  -- if occupiedBy brd nextPos color  -- Bumped into one of our own pieces.
-  --   then if cover then Just (nextPos, (nextPos, True))  -- Covering, so count it.
-  --                 else Nothing                          -- Moving, so don't.
-  --   else if occupiedBy brd nextPos (otherColor color)
-  --          then Just (nextPos, (nextPos, True))
-  --          else Just (nextPos, (nextPos, False))
 
 -- Calculate new position, based on current position and movement direction.
 --

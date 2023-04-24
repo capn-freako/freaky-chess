@@ -10,6 +10,7 @@ module Chess.Play where
 import qualified Data.Vector as V
 
 import Control.Arrow ((&&&), (>>>))
+import Control.Lens hiding (Empty)
 import Data.Function ((&))
 import Data.List     (sortOn)
 
@@ -30,9 +31,10 @@ bestMove n clr =
   sortFor Wht = reverse . sortOn fst
   sortFor Blk = sortOn fst
 
--- ToDo: Change `allPos` to just occupied squares.
 allMoves :: Player -> Board -> [Board]
-allMoves clr brd = concatMap (movesFromSquare clr brd) allPos
+allMoves clr brd = concatMap (movesFromSquare clr brd) $ case clr of
+  Wht -> brd^.occupiedByWht
+  Blk -> brd^.occupiedByBlk
 
 type BoardScore  = Board -> Int
 type PlayerScore = Player -> BoardScore
@@ -82,7 +84,7 @@ pawnStructure = tally pawnStructureByPlayer
 
 -- Uses "right-to-left" style.
 materialByPlayer :: PlayerScore
-materialByPlayer color brd = V.sum $ V.map (V.sum . V.map (total color)) $ _squares brd
+materialByPlayer color brd = V.sum $ V.map (V.sum . V.map (total color)) $ brd._squares
  where
   total :: Player -> Square -> Int
   total clr (Occupied clr' piece) | clr' == clr = value piece
@@ -104,12 +106,10 @@ mobilityByPlayer clr brd =
 -- A more efficient mobility calculator.
 totalSpan :: Board -> Player -> Position -> Int
 totalSpan brd color pos = case getSquare pos brd of
-  -- Occupied _ P -> length $ validNewPos brd pos
   Occupied _ N -> length $ validNewPos brd pos
   Occupied _ B -> sum $ map (reachLen brd color pos) diagDirs
   Occupied _ R -> sum $ map (reachLen brd color pos) rectDirs
   Occupied _ Q -> sum $ map (reachLen brd color pos) allDirs
-  -- Occupied _ K -> sum $ map (reachLen brd color pos) allDirs
   _            -> 0
 
 -- Reachable distance from position in given direction.

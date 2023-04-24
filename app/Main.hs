@@ -30,10 +30,10 @@ iter previousMoves = do
   let (score, brd) = last previousMoves
   printBoard brd
   putStrLn $ "Score: " ++ show score
-  putStrLn $ "Occupied by White: " ++ show brd._occupiedByWht
-  putStrLn $ "Occupied by Black: " ++ show brd._occupiedByBlk
+  -- putStrLn $ "Occupied by White: " ++ show brd._occupiedByWht
+  -- putStrLn $ "Occupied by Black: " ++ show brd._occupiedByBlk
   -- Check for mate.
-  let (score', _) = bestMove 1 Wht brd
+  let (score', _) = bestMove 2 Wht brd
       scoreChange = score' - score
    in if scoreChange > 9000  -- ToDo: This won't detect a stalemate.
         then do putStrLn "White wins!"
