@@ -30,8 +30,8 @@ iter previousMoves = do
   let (score, brd) = last previousMoves
   printBoard brd
   putStrLn $ "Score: " ++ show score
-  putStrLn $ "Occupied by White: " ++ show brd.occupiedByWht
-  putStrLn $ "Occupied by Black: " ++ show brd.occupiedByBlk
+  putStrLn $ "Occupied by White: " ++ show brd._occupiedByWht
+  putStrLn $ "Occupied by Black: " ++ show brd._occupiedByBlk
   -- Check for mate.
   let (score', _) = bestMove 1 Wht brd
       scoreChange = score' - score
@@ -66,7 +66,7 @@ evalCmd brd cmd =
     ( \brd' -> \case
         Left  msg        -> Left msg
         Right (from, to) ->
-          if from `elem` brd'.occupiedByWht
+          if from `elem` brd'._occupiedByWht
             then let possibleTos = validNewPos brd' from
                   in if to `elem` possibleTos
                        then Right $ movePiece brd' from to
@@ -74,8 +74,8 @@ evalCmd brd cmd =
                                     ++ "  Valid destination squares are: " ++ show possibleTos ++ "\n"
                                     ++ "  Received command: " ++ cmd ++ "\n"
                                     ++ "  Parsed command: " ++ show parsedCmds ++ "\n"
-                                    ++ "  Occupied by White: " ++ show brd'.occupiedByWht ++ "\n"
-                                    ++ "  Occupied by Black: " ++ show brd'.occupiedByBlk ++ "\n"
+                                    ++ "  Occupied by White: " ++ show brd'._occupiedByWht ++ "\n"
+                                    ++ "  Occupied by Black: " ++ show brd'._occupiedByBlk ++ "\n"
             else Left $ "Square " ++ show from ++ " does not contain a white piece!"
     )
     brd

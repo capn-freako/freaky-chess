@@ -5,6 +5,8 @@
 --
 -- Copyright (c) 2023 David Banas; all rights reserved World wide.
 
+{-# LANGUAGE TemplateHaskell #-}
+
 module Chess.Types
   ( Position, pattern Position, mkPosition, mkPositions, validPosition
   , Square (..), getSquare, setSquare, Board (..), isPawn
@@ -15,67 +17,15 @@ module Chess.Types
 
 import qualified Data.Vector as V
 
+import Control.Arrow             ((>>>))
+import Control.Lens hiding (Empty, indexed)
+-- import Control.Lens.TH
 import Control.Monad.State.Lazy
 import Data.Char                 (chr, ord)
 import Data.HashMap.Strict       (HashMap, fromList)
-import Data.Maybe                (mapMaybe, fromJust)
+import Data.Maybe                (mapMaybe)  -- , fromJust)
 import Data.Vector               (Vector, (//), indexed)
 import System.Console.ANSI
-
-data Board = Board
-  { squares  :: Vector (Vector Square)
-  , moved    :: HashMap String Bool
-  , lastMove :: Maybe Position
-  , occupiedByWht :: [Position]
-  , occupiedByBlk :: [Position]
-  }
-
-newGame :: Board
-newGame = execState
-  ( forM initialPlacements $
-      \(pos, square) -> case square of
-        Occupied clr _ -> do
-          brd <- get
-          let brd'@(Board _ _ _ whtSquares blkSquares) = setSquare (UnsafePosition pos) square brd
-              brd'' = if clr == Wht
-                        then brd'{occupiedByWht = fromJust (mkPosition pos) : whtSquares}
-                        else brd'{occupiedByBlk = fromJust (mkPosition pos) : blkSquares}
-          put brd''
-        _ -> error "Oops! This should never happen."
-  )
-  Board
-    { squares = V.replicate 8 (V.replicate 8 Empty)
-    , moved = fromList [ ("WK",  False)
-                       , ("WKR", False)
-                       , ("WQR", False)
-                       , ("BK",  False)
-                       , ("BKR", False)
-                       , ("BQR", False)
-                       ]
-    , lastMove = Nothing
-    , occupiedByWht = []
-    , occupiedByBlk = []
-    }
- where
-  initialPlacements =
-    [ ((0,0), Occupied Wht R)
-    , ((0,1), Occupied Wht N)
-    , ((0,2), Occupied Wht B)
-    , ((0,3), Occupied Wht Q)
-    , ((0,4), Occupied Wht K)
-    , ((0,5), Occupied Wht B)
-    , ((0,6), Occupied Wht N)
-    , ((0,7), Occupied Wht R)
-    ] ++ map (\f -> ((1, f), Occupied Wht P)) [0..7] ++
-    [ ((7,0), Occupied Blk R)
-    , ((7,1), Occupied Blk N)
-    , ((7,2), Occupied Blk B)
-    , ((7,3), Occupied Blk Q)
-    , ((7,4), Occupied Blk K)
-    , ((7,5), Occupied Blk B)
-    , ((7,6), Occupied Blk N)
-    , ((7,7), Occupied Blk R)
-    ] ++ map (\f -> ((6, f), Occupied Blk P)) [0..7]
 
 -- "Smart constructor" idiom moves validation from point of use to
 -- point of creation, reducing redundant work.
@@ -118,16 +68,16 @@ instance Show Square where
   show (Occupied _ piece) = " " ++ show piece ++ " "
 
 getSquare :: Position -> Board -> Square
-getSquare (Position rank file) brd = squares brd V.! rank V.! file
+getSquare (Position rank file) brd = _squares brd V.! rank V.! file
 
 {-# INLINE getSquare #-}
 
 setSquare :: Position -> Square -> Board -> Board
 setSquare (Position rank file) square brd =
-  brd { squares = theSquares // [(rank, (theSquares V.! rank) // [(file, square)])]
+  brd { _squares = theSquares // [(rank, (theSquares V.! rank) // [(file, square)])]
       }
  where
-  theSquares = brd.squares
+  theSquares = brd._squares
 
 isPawn :: Board -> Position -> Bool
 isPawn brd pos = case getSquare pos brd of
@@ -186,10 +136,75 @@ directionSpan (Position rank file) = \case
   L  -> [UnsafePosition (rank, f)    | f <- reverse [0..(file-1)]]
   NW -> [UnsafePosition (r,    f)    | r <- [(rank+1)..7] | f <- reverse [0..(file+1)]]
   
+data Board = Board
+  { _squares  :: Vector (Vector Square)
+  , moved    :: HashMap String Bool
+  , lastMove :: Maybe Position
+  , _occupiedByWht :: [Position]
+  , _occupiedByBlk :: [Position]
+  }
+
+$(makeLenses ''Board)
+
+-- shiftAtomX = over (point . x) (+ 1)
+
+newGame :: Board
+newGame = execState
+  ( forM initialPlacements $ \(pos, square) ->
+      let newPos     = UnsafePosition pos
+          consNewPos = (newPos :)
+       in case square of
+            Occupied clr _ -> do
+              modify $ setSquare (UnsafePosition pos) square
+                       >>> if clr == Wht
+                             then over occupiedByWht consNewPos
+                             else over occupiedByBlk consNewPos
+          -- brd <- get
+          -- let brd'@(Board _ _ _ whtSquares blkSquares) = setSquare (UnsafePosition pos) square brd
+          --     brd'' = if clr == Wht
+          --               then brd'{occupiedByWht = fromJust (mkPosition pos) : whtSquares}
+          --               else brd'{occupiedByBlk = fromJust (mkPosition pos) : blkSquares}
+          -- put brd''
+            _ -> error "Oops! This should never happen."
+  )
+  Board
+    { _squares = V.replicate 8 (V.replicate 8 Empty)
+    , moved = fromList [ ("WK",  False)
+                       , ("WKR", False)
+                       , ("WQR", False)
+                       , ("BK",  False)
+                       , ("BKR", False)
+                       , ("BQR", False)
+                       ]
+    , lastMove = Nothing
+    , _occupiedByWht = []
+    , _occupiedByBlk = []
+    }
+ where
+  initialPlacements =
+    [ ((0,0), Occupied Wht R)
+    , ((0,1), Occupied Wht N)
+    , ((0,2), Occupied Wht B)
+    , ((0,3), Occupied Wht Q)
+    , ((0,4), Occupied Wht K)
+    , ((0,5), Occupied Wht B)
+    , ((0,6), Occupied Wht N)
+    , ((0,7), Occupied Wht R)
+    ] ++ map (\f -> ((1, f), Occupied Wht P)) [0..7] ++
+    [ ((7,0), Occupied Blk R)
+    , ((7,1), Occupied Blk N)
+    , ((7,2), Occupied Blk B)
+    , ((7,3), Occupied Blk Q)
+    , ((7,4), Occupied Blk K)
+    , ((7,5), Occupied Blk B)
+    , ((7,6), Occupied Blk N)
+    , ((7,7), Occupied Blk R)
+    ] ++ map (\f -> ((6, f), Occupied Blk P)) [0..7]
+
 -- Is the given position occupied by a piece of the given color?
 occupiedBy :: Board -> Position -> Player -> Bool
-occupiedBy brd pos Wht = pos `elem` brd.occupiedByWht
-occupiedBy brd pos Blk = pos `elem` brd.occupiedByBlk
+occupiedBy brd pos Wht = pos `elem` brd._occupiedByWht
+occupiedBy brd pos Blk = pos `elem` brd._occupiedByBlk
 
 {-# INLINE occupiedBy #-}
 
@@ -212,7 +227,7 @@ allPos = [ UnsafePosition (rank, file)
 
 printBoard :: Board -> IO ()
 printBoard brd = do
-  V.forM_ (V.reverse $ indexed $ squares brd) $ \rank -> do
+  V.forM_ (V.reverse $ indexed $ _squares brd) $ \rank -> do
     putStr $ show $ fst rank + 1
     putStr " "
     _ <- printRank rank

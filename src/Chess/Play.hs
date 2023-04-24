@@ -82,7 +82,7 @@ pawnStructure = tally pawnStructureByPlayer
 
 -- Uses "right-to-left" style.
 materialByPlayer :: PlayerScore
-materialByPlayer color brd = V.sum $ V.map (V.sum . V.map (total color)) $ squares brd
+materialByPlayer color brd = V.sum $ V.map (V.sum . V.map (total color)) $ _squares brd
  where
   total :: Player -> Square -> Int
   total clr (Occupied clr' piece) | clr' == clr = value piece
@@ -159,8 +159,8 @@ areDiagAdjacent (Position rank1 file1, Position rank2 file2) =
 -- All board positions occupied by a piece of the given color.
 positionsByPlayer :: Board -> Player -> [Position]
 positionsByPlayer brd = \case
-  Wht -> brd.occupiedByWht
-  Blk -> brd.occupiedByBlk
+  Wht -> brd._occupiedByWht
+  Blk -> brd._occupiedByBlk
 
 {-# INLINE positionsByPlayer #-}
 

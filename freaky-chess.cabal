@@ -45,6 +45,7 @@ library
   build-depends:
       ansi-terminal
     , base >=4.7 && <5
+    , lens
     , monad-extras
     , mtl
     , unordered-containers
@@ -63,6 +64,7 @@ executable freaky-chess-exe
       ansi-terminal
     , base >=4.7 && <5
     , freaky-chess
+    , lens
     , monad-extras
     , mtl
     , unordered-containers
@@ -82,6 +84,7 @@ test-suite freaky-chess-test
       ansi-terminal
     , base >=4.7 && <5
     , freaky-chess
+    , lens
     , monad-extras
     , mtl
     , unordered-containers
