@@ -25,6 +25,7 @@ dependencies:
 - monad-extras
 - mtl
 - unordered-containers
+- timeit
 - vector
 - yjtools
 

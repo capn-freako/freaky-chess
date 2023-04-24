@@ -47,6 +47,7 @@ library
     , base >=4.7 && <5
     , monad-extras
     , mtl
+    , timeit
     , unordered-containers
     , vector
     , yjtools
@@ -65,6 +66,7 @@ executable freaky-chess-exe
     , freaky-chess
     , monad-extras
     , mtl
+    , timeit
     , unordered-containers
     , vector
     , yjtools
@@ -84,6 +86,7 @@ test-suite freaky-chess-test
     , freaky-chess
     , monad-extras
     , mtl
+    , timeit
     , unordered-containers
     , vector
     , yjtools

@@ -5,6 +5,7 @@
 --
 -- Copyright (c) 2023 David Banas; all rights reserved World wide.
 
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
@@ -14,6 +15,7 @@ import Control.Monad.Extra      (unfoldM)
 import Control.Monad.State.Lazy
 import Data.Char                (ord)
 import System.IO                (hFlush, stdout)
+import System.TimeIt
 
 import Chess.Moves
 import Chess.Play
@@ -30,10 +32,10 @@ iter previousMoves = do
   let (score, brd) = last previousMoves
   printBoard brd
   putStrLn $ "Score: " ++ show score
-  putStrLn $ "Occupied by White: " ++ show brd.occupiedByWht
-  putStrLn $ "Occupied by Black: " ++ show brd.occupiedByBlk
+  -- putStrLn $ "Occupied by White: " ++ show brd.occupiedByWht
+  -- putStrLn $ "Occupied by Black: " ++ show brd.occupiedByBlk
   -- Check for mate.
-  let (score', _) = bestMove 1 Wht brd
+  let ((score', _), _) = bestMove 1 Wht brd
       scoreChange = score' - score
    in if scoreChange > 9000  -- ToDo: This won't detect a stalemate.
         then do putStrLn "White wins!"
@@ -55,10 +57,15 @@ iter previousMoves = do
                                           return $ Just (score, previousMoves)
                          -- If White's move is valid then calculate Black's response.
                          Right brd' -> do
-                           putStrLn "Thinking..."
-                           let (_, brd'') = bestMove 3 Blk brd'
-                               score''    = rankBoard brd''
-                            in return $ Just (score'', previousMoves ++ [(score'', brd'')])
+                           putStr "Thinking..."
+                           (nSecs, (nMoves, score'', brd'')) <- timeItT $ do
+                             let ((!futureScore, !brd''), !nMoves) = bestMove 3 Blk brd'
+                                 !score''                          = rankBoard brd''
+                             return (nMoves, score'', brd'')
+                           let perf = round $ fromIntegral nMoves / nSecs
+                           putStrLn $ "Done. " ++ show nMoves ++ " moves tried in "
+                             ++ show nSecs ++ " seconds (" ++ show perf ++ " moves/s)."
+                           return $ Just (score'', previousMoves ++ [(score'', brd'')])
 
 evalCmd :: Board -> String -> Either String Board
 evalCmd brd cmd =

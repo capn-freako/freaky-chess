@@ -19,20 +19,27 @@ import Chess.Moves
 -- Choose best move, based on given look ahead, returning score.
 --
 -- Note: The returned score corresponds to a board `n` moves ahead.
-bestMove :: Int -> Player -> Board -> (Int, Board)
-bestMove n clr =
-  let f = case n of
-            0 -> rankBoard                             &&& id
-            _ -> fst . bestMove (n-1) (otherColor clr) &&& id
-   in head . sortFor clr . map f . allMoves clr
+bestMove :: Int -> Player -> Board -> ((Int, Board), Int)
+bestMove n clr brd = case n of
+  0 -> ((head $ sortFor clr (sortOn fst) $ map (rankBoard &&& id) newBoards), length newBoards)
+  _ -> let clr'        = otherColor clr
+           nextResults = map ((bestMove (n-1) clr') &&& id) newBoards
+           nMoves      = sum $ map (snd . fst) nextResults
+           (((futureScore, _), _), bestMv) = head $ sortFor clr' sortNextResults $ nextResults
+        in ((futureScore, bestMv), nMoves)
  where
-  sortFor :: Ord a => Player -> [(a,b)] -> [(a,b)]
-  sortFor Wht = reverse . sortOn fst
-  sortFor Blk = sortOn fst
+  sortNextResults :: Ord a => [(((a,b), c), Board)] -> [(((a,b), c), Board)]
+  sortNextResults = sortOn (fst . fst . fst)
+  sortFor :: Player -> ([a] -> [a]) -> [a] -> [a]
+  sortFor Wht sorter = reverse . sorter
+  sortFor Blk sorter = sorter
+  newBoards :: [Board]
+  newBoards = allMoves clr brd
 
--- ToDo: Change `allPos` to just occupied squares.
 allMoves :: Player -> Board -> [Board]
-allMoves clr brd = concatMap (movesFromSquare clr brd) allPos
+allMoves clr brd = concatMap (movesFromSquare clr brd) $ case clr of
+  Wht -> brd.occupiedByWht
+  Blk -> brd.occupiedByBlk
 
 type BoardScore  = Board -> Int
 type PlayerScore = Player -> BoardScore
