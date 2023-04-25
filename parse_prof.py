@@ -21,14 +21,13 @@ def indent(line):
 with open("freaky-chess-exe.prof", 'rt') as file:
     lines = file.readlines()
     for (ix, line) in enumerate(lines):
-        if ix < 32:
+        if ix < 39:
             next
-        elif ix < 35:
+        elif ix < 41:
             print(line.rstrip())
         else:
             toks = line.split()
-            # if toks and "occupiedBy" in toks[0] and int(toks[4]) > 150_000_000:
-            if toks and "reachCount" in toks[0] and int(toks[4]) > 100_000_000:
+            if toks and "reachCount" in toks[0] and int(toks[4]) > 10_000_000:
                 _indent = indent(line)
                 _ix = ix - 1
                 _lines_to_print = []
@@ -37,7 +36,7 @@ with open("freaky-chess-exe.prof", 'rt') as file:
                     _this_indent = indent(_this_line)
                     if(_this_indent < _indent):
                         _lines_to_print.insert(0, _this_line)
-                        if(_this_indent < 8):
+                        if(_this_indent < 4):
                             break
                         _indent = _this_indent
                     _ix -= 1

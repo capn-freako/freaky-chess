@@ -22,6 +22,7 @@ movesFromSquare color brd pos = case getSquare pos brd of
                                    | newPos <- validNewPos brd pos
                                    ]
 
+-- Updates board state according to given move.
 movePiece :: Board -> Position -> Position -> Board
 movePiece brd@(Board _ _ _ whtSquares blkSquares) oldPos newPos =
   case getSquare oldPos brd of
