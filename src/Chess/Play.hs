@@ -21,9 +21,11 @@ import Chess.Moves
 -- Note: The returned score corresponds to a board `n` moves ahead.
 bestMove :: Int -> Player -> Board -> ((Int, Board), Int)  -- ((score, board), # of moves tried)
 bestMove n clr brd = case n of
-  0 -> ((head $ sortFor clr (sortOn fst) $ map (rankBoard &&& id) newBoards), length newBoards)
+  0 -> case (sortFor clr (sortOn fst) $ map (rankBoard &&& id) newBoards) of
+    []  -> ((rankBoard brd, brd), 0)
+    x:_ -> (x, length newBoards)
   _ -> let clr'        = otherColor clr
-           nextResults = map ((bestMove (n-1) clr') &&& id) newBoards
+           nextResults = map ((bestMove (n-1) clr') &&& id) $ prune newBoards
            nMoves      = sum $ map (snd . fst) nextResults
            (((futureScore, _), _), bestMv) = head $ sortFor clr sortNextResults $ nextResults
         in ((futureScore, bestMv), nMoves)
@@ -35,11 +37,13 @@ bestMove n clr brd = case n of
   sortFor Blk sorter = sorter
   newBoards :: [Board]
   newBoards = allMoves clr brd
+  prune :: [Board] -> [Board]
+  prune = map snd . take 10 . sortFor clr (sortOn fst) . map (rankBoard &&& id)
 
 allMoves :: Player -> Board -> [Board]
-allMoves clr brd = concatMap (movesFromSquare clr brd) $ case clr of
-  Wht -> brd.occupiedByWht
-  Blk -> brd.occupiedByBlk
+allMoves clr brd = filter (not . inCheck clr)
+                 . concatMap (movesFromSquare clr brd)
+                 $ positionsByPlayer brd clr
 
 type BoardScore  = Board -> Int
 type PlayerScore = Player -> BoardScore
@@ -143,6 +147,8 @@ centerByPlayer clr brd =
 isCenter :: Position -> Bool
 isCenter (Position rank file) = rank > 2 && rank < 5 && file > 2 && file < 5
 
+{-# INLINE isCenter #-}
+
 -- Note: This heuristic is written in "left-to-right" style.
 --
 -- This function counts the number of unique diagonally adjacent pawn pairs.
@@ -193,3 +199,26 @@ coveredPos brd pos@(Position rank file) = case getSquare pos brd of
     Q -> concat             $ reaches color allDirs
  where
   reaches clr = map (reach True brd pos clr)
+
+-- Is a particular player's King in check?
+inCheck :: Player -> Board -> Bool
+inCheck clr brd = kingPos clr brd `elem` coveredBy (otherColor clr) brd
+
+kingPos :: Player -> Board -> Position
+kingPos color brd = case color of
+  Wht -> case filter (isKing brd) brd.occupiedByWht of
+           []  -> error "Whoops! White is missing a King."
+           x:_ -> x
+  Blk -> case filter (isKing brd) brd.occupiedByBlk of
+           []  -> error "Whoops! Black is missing a King."
+           x:_ -> x
+ where
+  isKing :: Board -> Position -> Bool
+  isKing _brd pos = case getSquare pos _brd of
+    Occupied clr K -> clr == color
+    _              -> False
+
+coveredBy :: Player -> Board -> [Position]
+coveredBy clr brd = concatMap (coveredPos brd) (positionsByPlayer brd clr)
+
+{-# INLINE coveredBy #-}

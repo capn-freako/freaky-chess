@@ -35,39 +35,43 @@ iter previousMoves = do
   let (score, brd, perf) = last previousMoves
   printBoard brd
   putStrLn $ "Score: " ++ show score
-  -- Check for mate.
-  let ((score', _), _) = bestMove 1 Wht brd
-      scoreChange = score' - score
-   in if scoreChange > 9000  -- ToDo: This won't detect a stalemate.
-        then do putStrLn "White wins!"
-                return Nothing
-        else if scoreChange < -9000
-               then do putStrLn $ "Black wins!"
-                       return Nothing
-               else do putStr "Move? "  -- Parse, validate, and execute White's move.
-                       hFlush stdout
-                       cmd <- getLine
-                       case evalCmd brd cmd of
-                         Left  msg  -> do
-                           case msg of
-                             "quit" -> return Nothing
-                             "back" -> let oldPrevMoves = init previousMoves
-                                           (score'', _, perf'') = last $ oldPrevMoves
-                                        in return $ Just ((score'', perf''), oldPrevMoves)
-                             _      -> do putStrLn msg
-                                          return $ Just ((score, perf), previousMoves)
-                         -- If White's move is valid then calculate Black's response.
-                         Right brd' -> do
-                           putStr "Thinking..."
-                           hFlush stdout
-                           (nSecs, (nMoves, score'', brd'')) <- timeItT $ do
-                             let ((!futureScore, !brd''), !nMoves) = bestMove 3 Blk brd'
-                                 !score''                          = rankBoard brd''
-                             return (nMoves, score'', brd'')
-                           let perf'' = round $ fromIntegral nMoves / nSecs
-                           putStrLn $ "Done. " ++ show nMoves ++ " moves tried in "
-                             ++ show nSecs ++ " seconds (" ++ show perf'' ++ " moves/s)."
-                           return $ Just ((score'', perf''), previousMoves ++ [(score'', brd'', perf'')])
+  -- Check for (stale)mate.
+  case allMoves Wht brd of
+    [] -> if inCheck Wht brd
+            then do putStrLn "Black wins!"
+                    return Nothing
+            else do putStrLn "Stalemate."
+                    return Nothing
+    _ -> do putStr "Move? "  -- Parse, validate, and execute White's move.
+            hFlush stdout
+            cmd <- getLine
+            case evalCmd brd cmd of
+              Left  msg  -> do
+                case msg of
+                  "quit" -> return Nothing
+                  "back" -> let oldPrevMoves = init previousMoves
+                                (score'', _, perf'') = last $ oldPrevMoves
+                             in return $ Just ((score'', perf''), oldPrevMoves)
+                  _      -> do putStrLn msg
+                               return $ Just ((score, perf), previousMoves)
+              Right brd' -> do  -- If White's move is valid then...
+                -- check for (stale)mate,
+                case allMoves Blk brd of
+                  [] -> if inCheck Blk brd
+                           then do putStrLn "White wins!"
+                                   return Nothing
+                           else do putStrLn "Stalemate."
+                                   return Nothing
+                  _ -> do putStr "Thinking..."  -- and calculate Black's response.
+                          hFlush stdout
+                          (nSecs, (nMoves, score'', brd'')) <- timeItT $ do
+                            let ((!futureScore, !brd''), !nMoves) = bestMove 4 Blk brd'
+                                !score''                          = rankBoard brd''
+                            return (nMoves, score'', brd'')
+                          let perf'' = round $ fromIntegral nMoves / nSecs
+                          putStrLn $ "Done. " ++ show nMoves ++ " moves tried in "
+                            ++ show nSecs ++ " seconds (" ++ show perf'' ++ " moves/s)."
+                          return $ Just ((score'', perf''), previousMoves ++ [(score'', brd'', perf'')])
 
 evalCmd :: Board -> String -> Either String Board
 evalCmd brd cmd =
