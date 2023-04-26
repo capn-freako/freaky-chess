@@ -24,10 +24,11 @@ bestMove n clr brd = case n of
   0 -> case (sortFor clr (sortOn fst) $ map (rankBoard &&& id) newBoards) of
     []  -> ((rankBoard brd, brd), 0)
     x:_ -> (x, length newBoards)
-  _ -> let clr'        = otherColor clr
-           nextResults = map ((bestMove (n-1) clr') &&& id) $ prune newBoards
+  _ -> let nextResults = map ((bestMove (n-1) clr') &&& id) $ prune newBoards
            nMoves      = sum $ map (snd . fst) nextResults
-           (((futureScore, _), _), bestMv) = head $ sortFor clr sortNextResults $ nextResults
+           (futureScore, bestMv) = case sortFor clr sortNextResults nextResults of
+             []                                    -> (rankBoard brd, brd)
+             (((futureScore', _), _), bestMv') : _ -> (futureScore', bestMv')
         in ((futureScore, bestMv), nMoves)
  where
   sortNextResults :: Ord a => [(((a,b), c), Board)] -> [(((a,b), c), Board)]
@@ -38,7 +39,9 @@ bestMove n clr brd = case n of
   newBoards :: [Board]
   newBoards = allMoves clr brd
   prune :: [Board] -> [Board]
-  prune = map snd . take 10 . sortFor clr (sortOn fst) . map (rankBoard &&& id)
+  -- prune = map snd . take 10 . sortFor clr (sortOn fst) . map (rankBoard &&& id)
+  prune = map snd . take 10 . sortFor clr (sortOn (fst . fst . fst)) . map (bestMove 0 clr' &&& id)
+  clr' = otherColor clr
 
 allMoves :: Player -> Board -> [Board]
 allMoves clr brd = filter (not . inCheck clr)

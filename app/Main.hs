@@ -24,15 +24,15 @@ import Chess.Types
 
 main :: IO ()
 main = do
-  (scores, perfs) <- unzip <$> unfoldM iter [(0, newGame, 0)]
+  (scores, perfs) <- unzip <$> unfoldM iter [(0, (newGame, newGame), 0)]
   putStrLn "Finished."
   putStrLn $ "Average performance: " ++ show (round $ fold mean $ map fromIntegral perfs) ++ " Moves/s"
   putStrLn "Score history:"
   forM_ scores print
 
-iter :: [(Int, Board, Int)] -> IO (Maybe ((Int, Int), [(Int, Board, Int)]))
+iter :: [(Int, (Board, Board), Int)] -> IO (Maybe ((Int, Int), [(Int, (Board, Board), Int)]))
 iter previousMoves = do
-  let (score, brd, perf) = last previousMoves
+  let (score, (boardAfterLastWhiteMove, brd), perf) = last previousMoves
   printBoard brd
   putStrLn $ "Score: " ++ show score
   -- Check for (stale)mate.
@@ -52,26 +52,32 @@ iter previousMoves = do
                   "back" -> let oldPrevMoves = init previousMoves
                                 (score'', _, perf'') = last $ oldPrevMoves
                              in return $ Just ((score'', perf''), oldPrevMoves)
+                  "trace" -> do putStrLn "*** Tracing AI's projected board evolution, starting from White's last move:"
+                                printBoard boardAfterLastWhiteMove
+                                doTrace 4 Blk boardAfterLastWhiteMove
+                                putStrLn "*** End of trace."
+                                return $ Just ((score, perf), previousMoves)
                   _      -> do putStrLn msg
                                return $ Just ((score, perf), previousMoves)
               Right brd' -> do  -- If White's move is valid then...
                 -- check for (stale)mate,
-                case allMoves Blk brd of
-                  [] -> if inCheck Blk brd
+                case allMoves Blk brd' of
+                  [] -> if inCheck Blk brd'
                            then do putStrLn "White wins!"
+                                   printBoard brd'
                                    return Nothing
                            else do putStrLn "Stalemate."
                                    return Nothing
                   _ -> do putStr "Thinking..."  -- and calculate Black's response.
                           hFlush stdout
                           (nSecs, (nMoves, score'', brd'')) <- timeItT $ do
-                            let ((!futureScore, !brd''), !nMoves) = bestMove 4 Blk brd'
+                            let ((!futureScore, !brd''), !nMoves) = bestMove 3 Blk brd'
                                 !score''                          = rankBoard brd''
                             return (nMoves, score'', brd'')
                           let perf'' = round $ fromIntegral nMoves / nSecs
                           putStrLn $ "Done. " ++ show nMoves ++ " moves tried in "
                             ++ show nSecs ++ " seconds (" ++ show perf'' ++ " moves/s)."
-                          return $ Just ((score'', perf''), previousMoves ++ [(score'', brd'', perf'')])
+                          return $ Just ((score'', perf''), previousMoves ++ [(score'', (brd', brd''), perf'')])
 
 evalCmd :: Board -> String -> Either String Board
 evalCmd brd cmd =
@@ -102,6 +108,7 @@ parseCmd cmd = case words cmd of
   []            -> [Left "Empty command string!"]
   "quit" : _    -> [Left "quit"]
   "back" : _    -> [Left "back"]
+  "trace" : _   -> [Left "trace"]
   "o-o"  : _    -> [decodeSquares ("h1", "f1"), decodeSquares ("e1", "g1")]
   from   : wrds ->
     case wrds of
@@ -126,3 +133,71 @@ decodeSquare str = case str of
                        in case mkPosition pos of
                             Nothing   -> Left $ "Invalid position: " ++ fileChar : [rankChar]
                             Just pos' -> Right pos'
+
+-- Trace/debug last AI move selection.
+doTrace :: Int -> Player -> Board -> IO ()
+doTrace n clr brd = do
+  let ((score, brd'), _) = bestMove n clr brd
+  printBoard brd'
+  putStrLn $ "AI's predicted future score: " ++ show score
+  case n of
+    0 -> return ()
+    _ -> doTrace (n-1) (otherColor clr) brd'
+
+-- -- Trace/debug last AI move selection.
+-- doTrace :: Board -> IO ()
+-- doTrace brd = do
+--   putStrLn "*** Entering AI decision trace mode. ***"
+--   putStrLn "Board after last move by White:"
+--   printBoard brd
+--   printTraceCmds
+--   doWhile_ $ do
+--     putStr "> "
+--     hFlush stdout
+--     cmd <- getLine
+--     case words cmd of
+--       []             -> do putStrLn "Empty command string! Try one of:"
+--                            printTraceCmds
+--                            return True
+--       ('q':_) : _    -> return False
+--       ('l':_) : wrds -> do
+--         let n = case wrds of
+--                   []       -> 10
+--                   nmbr : _ -> read nmbr
+--         listBoards n nextBoards
+--         return True
+--       ('v':_) : wrds -> case wrds of
+--         []       -> do putStrLn "You'll have to tell me which board to view."
+--                        return True
+--         nmbr : _ -> do printBoard (snd $ nextBoards !! (read nmbr - 1))
+--                        return True
+--       ('m':_) : wrds -> case wrds of
+--         []           -> do putStrLn "You'll have to tell me which board to start from."
+--                            return True
+--         nmbr : wrds' -> case wrds' of
+--           []        -> do putStrLn "You'll have to tell me how many moves to look ahead."
+--                           return True
+--           nmbr' : _ -> do let ((futureScore, nextBestMove), _) = bestMove (read nmbr') Wht (snd $ nextBoards !! (read nmbr - 1))
+--                           printBoard nextBestMove
+--                           return True
+--   putStrLn "*** Exiting AI decision trace mode. ***"
+--  where
+--   nextBoards = sortOn fst $ map (rankBoard &&& id) $ allMoves Blk brd
+
+-- printTraceCmds :: IO ()
+-- printTraceCmds = do
+--   putStrLn "Commands:"
+--   putStrLn "- l [N] : List first N available boards for viewing. (Default: 10)"
+--   putStrLn "- v N   : View board #N."
+--   putStrLn "- m N M : Show next best Move from board N, using M move look ahead."
+--   putStrLn "- q     : Quit and return to normal play mode."
+--   putStrLn ""
+
+-- listBoards :: Int -> [(Int, Board)] -> IO ()
+-- listBoards _ []   = return ()
+-- listBoards n brds = do
+--   putStrLn "Board   Score"
+--   putStrLn "============="
+--   forM (zip [(1::Int)..] (take n brds)) $ \(ix, (score, brd)) ->
+--     putStrLn $ " " ++ printf "%4d" ix ++ "   " ++ printf "%5d" score
+--   putStrLn "-------------"
