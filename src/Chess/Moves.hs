@@ -7,8 +7,9 @@
 
 module Chess.Moves where
 
-import Data.List  (unfoldr, delete)
-import Data.Maybe (fromJust)
+import Data.HashMap.Strict      (insert)
+import Data.List                (unfoldr, delete)
+import Data.Maybe               (fromJust, catMaybes)
 
 import Chess.Types
 
@@ -18,24 +19,44 @@ movesFromSquare :: Player -> Board -> Position -> [Board]
 movesFromSquare color brd pos = case getSquare pos brd of
   Empty                         -> []
   Occupied clr _ | clr /= color -> []
-                 | otherwise    -> [ movePiece brd pos newPos
-                                   | newPos <- validNewPos brd pos
-                                   ]
+                 | otherwise    -> catMaybes [ movePiece pos newPos brd
+                                             | newPos <- validNewPos brd pos
+                                             ]
 
--- Updates board state according to given move.
-movePiece :: Board -> Position -> Position -> Board
-movePiece brd@(Board _ _ _ whtSquares blkSquares) oldPos newPos =
-  case getSquare oldPos brd of
-    sqr@(Occupied clr _) ->
-      let newBoard = setSquare newPos sqr $ setSquare oldPos Empty brd
-          rsltBoard = case clr of
-            Wht -> newBoard{occupiedByWht = newPos : delete oldPos whtSquares}
-            Blk -> newBoard{occupiedByBlk = newPos : delete oldPos blkSquares}
+-- Updates board state according to given move, if allowed.
+movePiece :: Position -> Position -> Board -> Maybe Board
+movePiece oldPos@(Position rank file) newPos brd@(Board _ _ _ whtSquares blkSquares) =
+  if inCheck color newBoard
+    then Nothing
+    else Just newBoard
+ where
+  (color, newBoard) = case getSquare oldPos brd of
+    sqr@(Occupied clr piece) ->
+      let newBoard' = setSquare newPos sqr $ setSquare oldPos Empty brd
+          rsltBoard' = case clr of
+            Wht -> newBoard'{occupiedByWht = newPos : delete oldPos whtSquares}
+            Blk -> newBoard'{occupiedByBlk = newPos : delete oldPos blkSquares}
+          rsltBoard = case piece of
+            K -> case clr of
+              Wht -> rsltBoard'{moved = insert "WK" True rsltBoard'.moved}
+              Blk -> rsltBoard'{moved = insert "BK" True rsltBoard'.moved}
+            R -> case clr of
+              Wht -> if rank == 0 && file == 0
+                       then rsltBoard'{moved = insert "WQR" True rsltBoard'.moved}
+                       else if rank == 0 && file == 7
+                              then rsltBoard'{moved = insert "WKR" True rsltBoard'.moved}
+                              else rsltBoard'
+              Blk -> if rank == 7 && file == 0
+                       then rsltBoard'{moved = insert "BQR" True rsltBoard'.moved}
+                       else if rank == 7 && file == 7
+                              then rsltBoard'{moved = insert "BKR" True rsltBoard'.moved}
+                              else rsltBoard'
+            _ -> rsltBoard'
        in case getSquare newPos brd of       -- Handle capture if necessary.
             Occupied clr' _ -> case clr' of  -- Capture occured.
-              Wht -> rsltBoard{occupiedByWht = delete newPos rsltBoard.occupiedByWht}
-              Blk -> rsltBoard{occupiedByBlk = delete newPos rsltBoard.occupiedByBlk}
-            _ -> rsltBoard                   -- No capture occured.
+              Wht -> (clr, rsltBoard{occupiedByWht = delete newPos rsltBoard.occupiedByWht})
+              Blk -> (clr, rsltBoard{occupiedByBlk = delete newPos rsltBoard.occupiedByBlk})
+            _ -> (clr, rsltBoard)            -- No capture occured.
     _ -> error "Oops! This should never happen."
 
 -- Return the list of valid new positions for a piece.
@@ -72,7 +93,6 @@ validNewPos brd pos@(Position rank file) = case getSquare pos brd of
          , not $ occupiedBy' pos' color
          ]
     K -> concatMap (take 1) (reaches color allDirs)
-         ++ [fromJust $ mkPosition (0, 6) | rank == 0 && file == 4 && color == Wht]  -- castling
     R -> concat             $ reaches color rectDirs
     B -> concat             $ reaches color diagDirs
     Q -> concat             $ reaches color allDirs
@@ -89,6 +109,54 @@ reach cover brd position color dir =
                 then Nothing
                 else makeMove cover brd pos color dir
           ) (position, False)
+
+-- Return the list of positions covered by a piece.
+coveredPos :: Board -> Position -> [Position]
+coveredPos brd pos@(Position rank file) = case getSquare pos brd of
+  Empty                -> []
+  Occupied color piece -> case piece of
+    P -> case color of
+      Wht -> mkPositions [(rank+1, file-1), (rank+1, file+1)]
+      Blk -> mkPositions [(rank-1, file-1), (rank-1, file+1)]
+    N -> mkPositions
+           [ (rank+1, file-2)
+           , (rank+2, file-1)
+           , (rank+2, file+1)
+           , (rank+1, file+2)
+           , (rank-1, file-2)
+           , (rank-2, file-1)
+           , (rank-2, file+1)
+           , (rank-1, file+2)
+           ]
+    K -> concatMap (take 1) $ reaches color allDirs
+    R -> concat             $ reaches color rectDirs
+    B -> concat             $ reaches color diagDirs
+    Q -> concat             $ reaches color allDirs
+ where
+  reaches clr = map (reach True brd pos clr)
+
+coveredBy :: Player -> Board -> [Position]
+coveredBy clr brd = concatMap (coveredPos brd) (positionsByPlayer brd clr)
+
+{-# INLINE coveredBy #-}
+
+-- Is a particular player's King in check?
+inCheck :: Player -> Board -> Bool
+inCheck clr brd = kingPos clr brd `elem` coveredBy (otherColor clr) brd
+
+kingPos :: Player -> Board -> Position
+kingPos color brd = case color of
+  Wht -> case filter (isKing brd) brd.occupiedByWht of
+           []  -> error "Whoops! White is missing a King."
+           x:_ -> x
+  Blk -> case filter (isKing brd) brd.occupiedByBlk of
+           []  -> error "Whoops! Black is missing a King."
+           x:_ -> x
+ where
+  isKing :: Board -> Position -> Bool
+  isKing _brd pos = case getSquare pos _brd of
+    Occupied clr K -> clr == color
+    _              -> False
 
 -- Make requested move if possible and report whether a piece was captured.
 --

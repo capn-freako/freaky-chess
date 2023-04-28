@@ -9,7 +9,7 @@ module Chess.Types
   ( Position, pattern Position, mkPosition, mkPositions, validPosition
   , Square (..), getSquare, setSquare, Board (..), isPawn
   , Player (..), Piece (..), Direction (..), diagDirs, rectDirs, allDirs, directionSpan
-  , occupied, occupiedBy, otherColor
+  , occupied, occupiedBy, otherColor, positionsByPlayer
   , newGame, allPos, printBoard
   ) where
 
@@ -112,6 +112,7 @@ validPosition (r, f) = not (r < 0 || r > 7 || f < 0 || f > 7)
 
 data Square = Empty
             | Occupied Player Piece
+  deriving (Eq)
 
 instance Show Square where
   show Empty                = "   "
@@ -144,6 +145,7 @@ data Piece = P
            | B
            | Q
            | K
+  deriving (Eq)
 
 instance Show Piece where
   show piece =
@@ -186,6 +188,14 @@ directionSpan (Position rank file) = \case
   L  -> [UnsafePosition (rank, f)    | f <- reverse [0..(file-1)]]
   NW -> [UnsafePosition (r,    f)    | r <- [(rank+1)..7] | f <- reverse [0..(file+1)]]
   
+-- All board positions occupied by a piece of the given color.
+positionsByPlayer :: Board -> Player -> [Position]
+positionsByPlayer brd = \case
+  Wht -> brd.occupiedByWht
+  Blk -> brd.occupiedByBlk
+
+{-# INLINE positionsByPlayer #-}
+
 -- Is the given position occupied by a piece of the given color?
 occupiedBy :: Board -> Position -> Player -> Bool
 occupiedBy brd pos Wht = pos `elem` brd.occupiedByWht
