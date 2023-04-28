@@ -8,6 +8,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE TupleSections #-}
 
 module Main (main) where
 
@@ -83,12 +84,14 @@ evalCmd :: Board -> String -> Either String Board
 evalCmd brd cmd =
   foldM
     ( \brd' -> \case
-        Left  msg        -> Left msg
-        Right (from, to) ->
+        Left  msg -> Left msg
+        Right ((from, to), specialMove) ->
           if from `elem` brd'.occupiedByWht
             then let possibleTos = validNewPos brd' from
-                  in if to `elem` possibleTos
-                       then Right $ movePiece brd' from to
+                  in if to `elem` possibleTos || specialMove
+                       then case movePiece from to brd' of
+                         Nothing    -> Left "Sorry, that move is invalid."
+                         Just brd'' -> Right brd''
                        else Left  $ "Requested move, " ++ show from ++ " -> " ++ show to ++ ", is invalid!\n"
                                     ++ "  Valid destination squares are: " ++ show possibleTos ++ "\n"
                                     ++ "  Received command: " ++ cmd ++ "\n"
@@ -103,17 +106,18 @@ evalCmd brd cmd =
   parsedCmds = parseCmd cmd
 
 -- List supports castling, which requires two moves.
-parseCmd :: String -> [Either String (Position, Position)]
+parseCmd :: String -> [Either String ((Position, Position), Bool)]
 parseCmd cmd = case words cmd of
   []            -> [Left "Empty command string!"]
   "quit" : _    -> [Left "quit"]
   "back" : _    -> [Left "back"]
   "trace" : _   -> [Left "trace"]
-  "o-o"  : _    -> [decodeSquares ("h1", "f1"), decodeSquares ("e1", "g1")]
+  "o-o"  : _    -> map (fmap (, True)) [decodeSquares ("h1", "f1"), decodeSquares ("e1", "g1")]
+  "o-o-o" : _   -> map (fmap (, True)) [decodeSquares ("a1", "d1"), decodeSquares ("e1", "c1")]
   from   : wrds ->
     case wrds of
       []     -> [Left "Missing destination square!"]
-      to : _ -> [decodeSquares (from, to)]
+      to : _ -> map (fmap (, False)) [decodeSquares (from, to)]
 
 decodeSquares :: (String, String) -> Either String (Position, Position)
 decodeSquares (wrd1, wrd2) = do
@@ -143,61 +147,3 @@ doTrace n clr brd = do
   case n of
     0 -> return ()
     _ -> doTrace (n-1) (otherColor clr) brd'
-
--- -- Trace/debug last AI move selection.
--- doTrace :: Board -> IO ()
--- doTrace brd = do
---   putStrLn "*** Entering AI decision trace mode. ***"
---   putStrLn "Board after last move by White:"
---   printBoard brd
---   printTraceCmds
---   doWhile_ $ do
---     putStr "> "
---     hFlush stdout
---     cmd <- getLine
---     case words cmd of
---       []             -> do putStrLn "Empty command string! Try one of:"
---                            printTraceCmds
---                            return True
---       ('q':_) : _    -> return False
---       ('l':_) : wrds -> do
---         let n = case wrds of
---                   []       -> 10
---                   nmbr : _ -> read nmbr
---         listBoards n nextBoards
---         return True
---       ('v':_) : wrds -> case wrds of
---         []       -> do putStrLn "You'll have to tell me which board to view."
---                        return True
---         nmbr : _ -> do printBoard (snd $ nextBoards !! (read nmbr - 1))
---                        return True
---       ('m':_) : wrds -> case wrds of
---         []           -> do putStrLn "You'll have to tell me which board to start from."
---                            return True
---         nmbr : wrds' -> case wrds' of
---           []        -> do putStrLn "You'll have to tell me how many moves to look ahead."
---                           return True
---           nmbr' : _ -> do let ((futureScore, nextBestMove), _) = bestMove (read nmbr') Wht (snd $ nextBoards !! (read nmbr - 1))
---                           printBoard nextBestMove
---                           return True
---   putStrLn "*** Exiting AI decision trace mode. ***"
---  where
---   nextBoards = sortOn fst $ map (rankBoard &&& id) $ allMoves Blk brd
-
--- printTraceCmds :: IO ()
--- printTraceCmds = do
---   putStrLn "Commands:"
---   putStrLn "- l [N] : List first N available boards for viewing. (Default: 10)"
---   putStrLn "- v N   : View board #N."
---   putStrLn "- m N M : Show next best Move from board N, using M move look ahead."
---   putStrLn "- q     : Quit and return to normal play mode."
---   putStrLn ""
-
--- listBoards :: Int -> [(Int, Board)] -> IO ()
--- listBoards _ []   = return ()
--- listBoards n brds = do
---   putStrLn "Board   Score"
---   putStrLn "============="
---   forM (zip [(1::Int)..] (take n brds)) $ \(ix, (score, brd)) ->
---     putStrLn $ " " ++ printf "%4d" ix ++ "   " ++ printf "%5d" score
---   putStrLn "-------------"

@@ -11,7 +11,9 @@ import qualified Data.Vector as V
 
 import Control.Arrow ((&&&), (>>>))
 import Data.Function ((&))
+import Data.HashMap.Strict ((!))
 import Data.List     (sortOn)
+import Data.Maybe    (catMaybes)
 
 import Chess.Types
 import Chess.Moves
@@ -39,14 +41,27 @@ bestMove n clr brd = case n of
   newBoards :: [Board]
   newBoards = allMoves clr brd
   prune :: [Board] -> [Board]
-  -- prune = map snd . take 10 . sortFor clr (sortOn fst) . map (rankBoard &&& id)
   prune = map snd . take 10 . sortFor clr (sortOn (fst . fst . fst)) . map (bestMove 0 clr' &&& id)
   clr' = otherColor clr
 
 allMoves :: Player -> Board -> [Board]
-allMoves clr brd = filter (not . inCheck clr)
-                 . concatMap (movesFromSquare clr brd)
-                 $ positionsByPlayer brd clr
+allMoves clr brd = filter (not . inCheck clr) (normalMoves ++ catMaybes castleMoves)
+ where
+  normalMoves = concatMap (movesFromSquare clr brd) $ positionsByPlayer brd clr
+  castleMoves =
+    [ movePiece (pos !! 0) (pos !! 1) brd >>= movePiece (pos !! 2) (pos !! 3)
+    | canCastleRight clr brd
+    ] ++
+    [ movePiece (pos !! 4) (pos !! 5) brd >>= movePiece (pos !! 6) (pos !! 7)
+    | canCastleLeft  clr brd
+    ]
+  pos = case clr of
+    Wht -> mkPositions [ (0,4), (0,6), (0,7), (0,5)  -- White King side
+                       , (0,4), (0,2), (0,0), (0,3)  -- White Queen side
+                       ]
+    Blk -> mkPositions [ (7,4), (7,6), (7,7), (7,5)  -- Black King side
+                       , (7,4), (7,2), (7,0), (7,3)  -- Black Queen side
+                       ]
 
 type BoardScore  = Board -> Int
 type PlayerScore = Player -> BoardScore
@@ -170,58 +185,32 @@ areDiagAdjacent :: (Position, Position) -> Bool
 areDiagAdjacent (Position rank1 file1, Position rank2 file2) =
   abs (rank1 - rank2) == 1 && abs (file1 - file2) == 1
 
--- All board positions occupied by a piece of the given color.
-positionsByPlayer :: Board -> Player -> [Position]
-positionsByPlayer brd = \case
-  Wht -> brd.occupiedByWht
-  Blk -> brd.occupiedByBlk
-
-{-# INLINE positionsByPlayer #-}
-
--- Return the list of positions covered by a piece.
-coveredPos :: Board -> Position -> [Position]
-coveredPos brd pos@(Position rank file) = case getSquare pos brd of
-  Empty                -> []
-  Occupied color piece -> case piece of
-    P -> case color of
-      Wht -> mkPositions [(rank+1, file-1), (rank+1, file+1)]
-      Blk -> mkPositions [(rank-1, file-1), (rank-1, file+1)]
-    N -> mkPositions
-           [ (rank+1, file-2)
-           , (rank+2, file-1)
-           , (rank+2, file+1)
-           , (rank+1, file+2)
-           , (rank-1, file-2)
-           , (rank-2, file-1)
-           , (rank-2, file+1)
-           , (rank-1, file+2)
-           ]
-    K -> concatMap (take 1) $ reaches color allDirs
-    R -> concat             $ reaches color rectDirs
-    B -> concat             $ reaches color diagDirs
-    Q -> concat             $ reaches color allDirs
+-- Determine whether castling to King side is an option.
+canCastleRight :: Player -> Board -> Bool
+canCastleRight clr = canCastle pieces locs clr
  where
-  reaches clr = map (reach True brd pos clr)
+  (pieces, rnk) = case clr of
+    Wht -> (["WK", "WKR"], 0)
+    Blk -> (["BK", "BKR"], 7)
+  locs = [(rnk,5),(rnk,6)]
 
--- Is a particular player's King in check?
-inCheck :: Player -> Board -> Bool
-inCheck clr brd = kingPos clr brd `elem` coveredBy (otherColor clr) brd
-
-kingPos :: Player -> Board -> Position
-kingPos color brd = case color of
-  Wht -> case filter (isKing brd) brd.occupiedByWht of
-           []  -> error "Whoops! White is missing a King."
-           x:_ -> x
-  Blk -> case filter (isKing brd) brd.occupiedByBlk of
-           []  -> error "Whoops! Black is missing a King."
-           x:_ -> x
+-- Determine whether castling to Queen side is an option.
+canCastleLeft :: Player -> Board -> Bool
+canCastleLeft clr = canCastle pieces locs clr
  where
-  isKing :: Board -> Position -> Bool
-  isKing _brd pos = case getSquare pos _brd of
-    Occupied clr K -> clr == color
-    _              -> False
+  (pieces, rnk) = case clr of
+    Wht -> (["WK", "WQR"], 0)
+    Blk -> (["BK", "BQR"], 7)
+  locs = [(rnk,1),(rnk,2),(rnk,3)]
 
-coveredBy :: Player -> Board -> [Position]
-coveredBy clr brd = concatMap (coveredPos brd) (positionsByPlayer brd clr)
+-- Castling helper function (i.e. - factored commonality)
+canCastle :: [String] -> [(Int,Int)] -> Player -> Board -> Bool
+canCastle pieces locs clr brd =
+  not (or (map (brd.moved !) pieces))
+  && not (inCheck clr brd)                                           -- Can't castle out of check.
+  && all (both ((== Empty) . flip getSquare brd)                     -- Can't castle through other pieces.
+               (not . (flip elem $ coveredBy (otherColor clr) brd))  -- Can't castle through check.
+         ) (mkPositions locs)
 
-{-# INLINE coveredBy #-}
+both :: (a -> Bool) -> (a -> Bool) -> a -> Bool
+both p q x = p x && q x
