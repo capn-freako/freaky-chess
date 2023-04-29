@@ -6,6 +6,29 @@ You'll find that:
 - the computer doesn't play very well, and
 - the graphics are painfully '70s retro. :(
 
+## Quick Start Installation Instructions
+
+1. [Install _Git_](https://git-scm.com/downloads).
+2. [Install _Stack_](https://docs.haskellstack.org/en/stable/install_and_upgrade/).
+3. Clone this _Git_ repository:
+
+    ![Cloning Screen Shot](img/Cloning_ScrnSht.png)
+    
+4. At a command prompt, type: `git clone `, paste what you just copied in step 3, and hit `<RETURN>`.
+    
+    Depending upon your platform and terminal application, pasting may be achieved using one of:
+    
+    - `<CTRL>-v`
+    - `<CMD>-v`
+    - `<SHIFT>-<INSERT>`
+
+5. Move into the newly created directory and type: `stac exec freaky-chess-exe`.
+
+    You should see a lot of "work" being done by the `stack` package manager and the Haskell compiler.
+    This all may take some time to complete.
+    But, when it's finished you should be presented with a chess board and asked to make a move.
+    Try: `e2 e4`, to get the game rolling.
+    
 ## My Intent
 
 My aim here was _not_ to invent a new competitor to _Stockfish_, but rather to go through the exercise of codifying _reasonably good_ and _shallow_ heuristics for board evaluation.
