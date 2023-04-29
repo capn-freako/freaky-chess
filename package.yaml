@@ -22,6 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/capn
 dependencies:
 - base >= 4.7 && < 5
 - ansi-terminal
+- containers
 - foldl
 - monad-extras
 - mtl

@@ -86,7 +86,7 @@ evalCmd brd cmd =
     ( \brd' -> \case
         Left  msg -> Left msg
         Right ((from, to), specialMove) ->
-          if from `elem` brd'.occupiedByWht
+          if occupiedBy brd' from Wht
             then let possibleTos = validNewPos brd' from
                   in if to `elem` possibleTos || specialMove
                        then case movePiece from to brd' of

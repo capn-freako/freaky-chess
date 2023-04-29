@@ -45,6 +45,7 @@ library
   build-depends:
       ansi-terminal
     , base >=4.7 && <5
+    , containers
     , foldl
     , monad-extras
     , mtl
@@ -64,6 +65,7 @@ executable freaky-chess-exe
   build-depends:
       ansi-terminal
     , base >=4.7 && <5
+    , containers
     , foldl
     , freaky-chess
     , monad-extras
@@ -85,6 +87,7 @@ test-suite freaky-chess-test
   build-depends:
       ansi-terminal
     , base >=4.7 && <5
+    , containers
     , foldl
     , freaky-chess
     , monad-extras

@@ -23,10 +23,10 @@ import Chess.Moves
 -- Note: The returned score corresponds to a board `n` moves ahead.
 bestMove :: Int -> Player -> Board -> ((Int, Board), Int)  -- ((score, board), # of moves tried)
 bestMove n clr brd = case n of
-  0 -> case (sortFor clr (sortOn fst) $ map (rankBoard &&& id) newBoards) of
+  0 -> case sortFor clr (sortOn fst) $ map (rankBoard &&& id) newBoards of
     []  -> ((rankBoard brd, brd), 0)
     x:_ -> (x, length newBoards)
-  _ -> let nextResults = map ((bestMove (n-1) clr') &&& id) $ prune newBoards
+  _ -> let nextResults = map (bestMove (n-1) clr' &&& id) $ prune newBoards
            nMoves      = sum $ map (snd . fst) nextResults
            (futureScore, bestMv) = case sortFor clr sortNextResults nextResults of
              []                                    -> (rankBoard brd, brd)
@@ -150,12 +150,9 @@ reachLen brd clr pos dir = reachCount 0 brd clr positions
 
 reachCount :: Int -> Board -> Player -> [Position] -> Int
 reachCount n _   _   []     = n
-reachCount n brd clr (p:ps) =
-  if occupiedBy brd p clr                      -- Have we bumped into one of our own pieces?
-    then n
-    else if occupiedBy brd p (otherColor clr)  -- Have we bumped into a piece of the other color?
-           then n+1                            -- Ability to capture extends our reach by one square.
-           else reachCount (n+1) brd clr ps    -- Still unobstructed; continue counting.
+reachCount n brd clr (p:ps) = case getSquare p brd of
+  Occupied clr' _ -> if clr' == clr then n else n+1
+  Empty -> reachCount (n+1) brd clr ps
 
 -- Uses "right-to-left" style.
 centerByPlayer :: PlayerScore
@@ -206,10 +203,10 @@ canCastleLeft clr = canCastle pieces locs clr
 -- Castling helper function (i.e. - factored commonality)
 canCastle :: [String] -> [(Int,Int)] -> Player -> Board -> Bool
 canCastle pieces locs clr brd =
-  not (or (map (brd.moved !) pieces))
-  && not (inCheck clr brd)                                           -- Can't castle out of check.
-  && all (both ((== Empty) . flip getSquare brd)                     -- Can't castle through other pieces.
-               (not . (flip elem $ coveredBy (otherColor clr) brd))  -- Can't castle through check.
+  not (any (brd.moved !) pieces)
+  && not (inCheck clr brd)                                         -- Can't castle out of check.
+  && all (both ((== Empty) . flip getSquare brd)                   -- Can't castle through other pieces.
+               (not . flip elem (coveredBy (otherColor clr) brd))  -- Can't castle through check.
          ) (mkPositions locs)
 
 both :: (a -> Bool) -> (a -> Bool) -> a -> Bool

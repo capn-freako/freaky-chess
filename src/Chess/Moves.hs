@@ -7,8 +7,10 @@
 
 module Chess.Moves where
 
+import qualified Data.Set    as Set
+
 import Data.HashMap.Strict      (insert)
-import Data.List                (unfoldr, delete)
+import Data.List                (unfoldr)
 import Data.Maybe               (fromJust, catMaybes)
 
 import Chess.Types
@@ -25,7 +27,7 @@ movesFromSquare color brd pos = case getSquare pos brd of
 
 -- Updates board state according to given move, if allowed.
 movePiece :: Position -> Position -> Board -> Maybe Board
-movePiece oldPos@(Position rank file) newPos brd@(Board _ _ _ whtSquares blkSquares) =
+movePiece oldPos@(Position rank file) newPos brd@(Board _ _ _ whtSquares blkSquares _ _) =
   if inCheck color newBoard
     then Nothing
     else Just newBoard
@@ -34,12 +36,20 @@ movePiece oldPos@(Position rank file) newPos brd@(Board _ _ _ whtSquares blkSqua
     sqr@(Occupied clr piece) ->
       let newBoard' = setSquare newPos sqr $ setSquare oldPos Empty brd
           rsltBoard' = case clr of
-            Wht -> newBoard'{occupiedByWht = newPos : delete oldPos whtSquares}
-            Blk -> newBoard'{occupiedByBlk = newPos : delete oldPos blkSquares}
+            Wht -> newBoard'{ occupiedByWht = Set.insert (piece, newPos)
+                                            $ Set.delete (piece, oldPos) whtSquares
+                            }
+            Blk -> newBoard'{ occupiedByBlk = Set.insert (piece, newPos)
+                                            $ Set.delete (piece, oldPos) blkSquares
+                            }
           rsltBoard = case piece of
             K -> case clr of
-              Wht -> rsltBoard'{moved = insert "WK" True rsltBoard'.moved}
-              Blk -> rsltBoard'{moved = insert "BK" True rsltBoard'.moved}
+              Wht -> rsltBoard'{ moved = insert "WK" True rsltBoard'.moved
+                               , whiteKingPos = newPos
+                               }
+              Blk -> rsltBoard'{ moved = insert "BK" True rsltBoard'.moved
+                               , blackKingPos = newPos
+                               }
             R -> case clr of
               Wht -> if rank == 0 && file == 0
                        then rsltBoard'{moved = insert "WQR" True rsltBoard'.moved}
@@ -52,11 +62,11 @@ movePiece oldPos@(Position rank file) newPos brd@(Board _ _ _ whtSquares blkSqua
                               then rsltBoard'{moved = insert "BKR" True rsltBoard'.moved}
                               else rsltBoard'
             _ -> rsltBoard'
-       in case getSquare newPos brd of       -- Handle capture if necessary.
-            Occupied clr' _ -> case clr' of  -- Capture occured.
-              Wht -> (clr, rsltBoard{occupiedByWht = delete newPos rsltBoard.occupiedByWht})
-              Blk -> (clr, rsltBoard{occupiedByBlk = delete newPos rsltBoard.occupiedByBlk})
-            _ -> (clr, rsltBoard)            -- No capture occured.
+       in case getSquare newPos brd of            -- Handle capture if necessary.
+            Occupied clr' piece' -> case clr' of  -- Capture occured.
+              Wht -> (clr, rsltBoard{occupiedByWht = Set.delete (piece', newPos) rsltBoard.occupiedByWht})
+              Blk -> (clr, rsltBoard{occupiedByBlk = Set.delete (piece', newPos) rsltBoard.occupiedByBlk})
+            _ -> (clr, rsltBoard)                 -- No capture occured.
     _ -> error "Oops! This should never happen."
 
 -- Return the list of valid new positions for a piece.
@@ -143,20 +153,6 @@ coveredBy clr brd = concatMap (coveredPos brd) (positionsByPlayer brd clr)
 -- Is a particular player's King in check?
 inCheck :: Player -> Board -> Bool
 inCheck clr brd = kingPos clr brd `elem` coveredBy (otherColor clr) brd
-
-kingPos :: Player -> Board -> Position
-kingPos color brd = case color of
-  Wht -> case filter (isKing brd) brd.occupiedByWht of
-           []  -> error "Whoops! White is missing a King."
-           x:_ -> x
-  Blk -> case filter (isKing brd) brd.occupiedByBlk of
-           []  -> error "Whoops! Black is missing a King."
-           x:_ -> x
- where
-  isKing :: Board -> Position -> Bool
-  isKing _brd pos = case getSquare pos _brd of
-    Occupied clr K -> clr == color
-    _              -> False
 
 -- Make requested move if possible and report whether a piece was captured.
 --
