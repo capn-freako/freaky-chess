@@ -22,13 +22,16 @@ You'll find that:
     - `<CMD>-v`
     - `<SHIFT>-<INSERT>`
 
-5. Move into the newly created directory and type: `stac exec freaky-chess-exe`.
+5. Move into the newly created directory and type: `stack build`.
 
-    You should see a lot of "work" being done by the `stack` package manager and the Haskell compiler.
-    This all may take some time to complete.
-    But, when it's finished you should be presented with a chess board and asked to make a move.
-    Try: `e2 e4`, to get the game rolling.
+    You should see a lot of "work" being done by the `stack` package manager and the _Haskell_ compiler (_GHC_).
+    This all may take some time to complete the first time it runs.
     
+6. Type: `stack exec freaky-chess-exe`, and hit `<RETURN>`.
+    
+    You should be presented with a chess board and asked to make a move.
+    Try: `e2 e4`, to get the game rolling.
+
 ## My Intent
 
 My aim here was _not_ to invent a new competitor to _Stockfish_, but rather to go through the exercise of codifying _reasonably good_ and _shallow_ heuristics for board evaluation.
