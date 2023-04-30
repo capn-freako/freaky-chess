@@ -5,6 +5,20 @@
 --
 -- Copyright (c) 2023 David Banas; all rights reserved World wide.
 
+{-# OPTIONS_HADDOCK show-extensions #-}
+
+{-|
+Module      : Chess.Types
+Description : Data types used by the 'freaky-chess' application.
+Copyright   : (c) David Banas, 2023; all rights reserved World wide.
+License     : BSD-3
+Maintainer  : capn.freako@gmail.com
+Stability   : experimental
+Portability : 'stack' LTS 20.17; ASCII
+
+The various data types needed to describe a Chess board,
+as well as the play of a game.
+-}
 module Chess.Types
   ( Position, pattern Position, mkPosition, mkPositions, validPosition
   , Square (..), getSquare, setSquare, Board (..), isPawn, kingPos
@@ -25,15 +39,16 @@ import Data.Vector               (Vector, (//), indexed)
 import System.Console.ANSI
 
 data Board = Board
-  { squares  :: Vector (Vector Square)
-  , moved    :: HashMap String Bool
-  , lastMove :: Maybe Position
-  , occupiedByWht :: Set (Piece, Position)
-  , occupiedByBlk :: Set (Piece, Position)
-  , whiteKingPos :: Position
-  , blackKingPos :: Position
+  { squares  :: Vector (Vector Square)      -- ^Array containing contents of each board square.
+  , moved    :: HashMap String Bool         -- ^Records initial movement of Kings & Rooks, for castling.
+  , lastMove :: Maybe Position              -- ^Destination square of last piece moved.
+  , occupiedByWht :: Set (Piece, Position)  -- ^Those squares occupied by white pieces.
+  , occupiedByBlk :: Set (Piece, Position)  -- ^Those squares occupied by black pieces.
+  , whiteKingPos :: Position                -- ^Position of white king.
+  , blackKingPos :: Position                -- ^Position of black king.
   }
 
+-- |Return a new game board, set up and ready for the first move of play.
 newGame :: Board
 newGame = execState
   ( forM initialPlacements $
@@ -83,8 +98,10 @@ newGame = execState
     , ((7,7), Occupied Blk R)
     ] ++ map (\f -> ((6, f), Occupied Blk P)) [0..7]
 
--- "Smart constructor" idiom moves validation from point of use to
+-- |/Smart constructor/ idiom moves validation from point of use to
 -- point of creation, reducing redundant work.
+--
+-- __Note:__ The @UnsafePosition@ data constructor is /not/ exported.
 newtype Position = UnsafePosition (Int, Int)
   deriving newtype (Eq, Ord)
 
@@ -97,8 +114,8 @@ pattern Position rank file <- UnsafePosition (rank, file)
 {-# COMPLETE Position #-}
 {-# INLINE Position #-}
 
--- Client code's only mechanism for making a `Position`.
--- Note the `Maybe`, while the pattern synonym above requires a plain `Position`.
+-- |Client code's only mechanism for making a @`Position`@.
+-- Note the @Maybe@, while the pattern synonym above requires a plain @`Position`@.
 -- This forces validation/filtration to the point of creation,
 -- under penalty of type checking failure.
 mkPosition :: (Int, Int) -> Maybe Position
@@ -107,7 +124,7 @@ mkPosition rankAndFile =
     then Just (UnsafePosition rankAndFile)
     else Nothing
 
--- Turn only the valid elements of a list of coordinates into `Position`s.
+-- |Turn only the valid elements of a list of coordinates into @`Position`@s.
 mkPositions :: [(Int, Int)] -> [Position]
 mkPositions = mapMaybe mkPosition
 
@@ -141,6 +158,7 @@ isPawn brd pos = case getSquare pos brd of
   Occupied _ P -> True
   _            -> False
 
+-- |Return the position of a particular player's King.
 kingPos :: Player -> Board -> Position
 kingPos clr brd = case clr of
   Wht -> brd.whiteKingPos
@@ -178,16 +196,19 @@ data Direction = U  -- "N" is used above.
                | L
                | NW
 
+-- |Return the /diagonal/ directions, i.e., NW, SE, etc.
 diagDirs :: [Direction]
 diagDirs = [NW, NE, SE, SW]
 
+-- |Return the /rectangular/ directions, i.e., E, S, etc.
 rectDirs :: [Direction]
 rectDirs = [U, S, E, L]
 
+-- |Return /all/ directions.
 allDirs :: [Direction]
 allDirs  = diagDirs ++ rectDirs
 
--- Efficient generation of radial from position to board edge.
+-- |Efficient generation of radial from position to board edge.
 directionSpan :: Position -> Direction -> [Position]
 directionSpan (Position rank file) = \case
   U  -> [UnsafePosition (r,    file) | r <- [(rank+1)..7]]
@@ -199,7 +220,7 @@ directionSpan (Position rank file) = \case
   L  -> [UnsafePosition (rank, f)    | f <- reverse [0..(file-1)]]
   NW -> [UnsafePosition (r,    f)    | r <- [(rank+1)..7] | f <- reverse [0..(file-1)]]
   
--- All board positions occupied by a piece of the given color.
+-- |All board positions occupied by a piece of the given color.
 positionsByPlayer :: Board -> Player -> [Position]
 positionsByPlayer brd = \case
   Wht -> map snd $ Set.toList brd.occupiedByWht
@@ -207,13 +228,14 @@ positionsByPlayer brd = \case
 
 {-# INLINE positionsByPlayer #-}
 
--- Is the given position occupied by a piece of the given color?
+-- |Is the given position occupied by a piece of the given color?
 occupiedBy :: Board -> Position -> Player -> Bool
 occupiedBy brd pos clr = case getSquare pos brd of
   Occupied clr' _ -> clr' == clr
   Empty -> False
 {-# INLINE occupiedBy #-}
 
+-- |Is the given position occupied at all?
 occupied :: Board -> Position -> Bool
 occupied brd pos = case getSquare pos brd of
   Occupied _ _ -> True
@@ -226,6 +248,7 @@ otherColor Blk = Wht
 
 {-# INLINE otherColor #-}
 
+-- |Every position on the board.
 allPos :: [Position]
 allPos = [ UnsafePosition (rank, file)
          | rank <- [0..7]

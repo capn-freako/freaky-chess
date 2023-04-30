@@ -5,6 +5,20 @@
 --
 -- Copyright (c) 2023 David Banas; all rights reserved World wide.
 
+{-# OPTIONS_HADDOCK show-extensions #-}
+
+{-|
+Module      : Chess.Moves
+Description : Querying and execution of Chess moves.
+Copyright   : (c) David Banas, 2023; all rights reserved World wide.
+License     : BSD-3
+Maintainer  : capn.freako@gmail.com
+Stability   : experimental
+Portability : 'stack' LTS 20.17; ASCII
+
+Functions for querying the scope/validity of, as well as actually executing,
+the moves on a Chess board.
+-}
 module Chess.Moves where
 
 import qualified Data.Set    as Set
@@ -15,8 +29,11 @@ import Data.Maybe               (fromJust, catMaybes)
 
 import Chess.Types
 
--- Return the list of boards corresponding to all valid moves from the
+-- |Return the list of boards corresponding to all valid moves from the
 -- given square for the given player.
+--
+-- __Note:__ Function confirms that the given player actually occupies
+-- the given square, returning an empty list if not.
 movesFromSquare :: Player -> Board -> Position -> [Board]
 movesFromSquare color brd pos = case getSquare pos brd of
   Empty                         -> []
@@ -25,7 +42,7 @@ movesFromSquare color brd pos = case getSquare pos brd of
                                              | newPos <- validNewPos brd pos
                                              ]
 
--- Updates board state according to given move, if allowed.
+-- |Updates board state according to given move, if allowed.
 movePiece :: Position -> Position -> Board -> Maybe Board
 movePiece oldPos@(Position rank file) newPos brd@(Board _ _ _ whtSquares blkSquares _ _) =
   if inCheck color newBoard
@@ -69,8 +86,9 @@ movePiece oldPos@(Position rank file) newPos brd@(Board _ _ _ whtSquares blkSqua
             _ -> (clr, rsltBoard)                 -- No capture occured.
     _ -> error "Oops! This should never happen."
 
--- Return the list of valid new positions for a piece.
--- ToDo: add "en passat" P move.
+-- |Return the list of valid new positions for a piece.
+--
+-- __ToDo:__ Add /en passat/ Pawn move.
 validNewPos :: Board -> Position -> [Position]
 validNewPos brd pos@(Position rank file) = case getSquare pos brd of
   Empty -> []
@@ -111,7 +129,16 @@ validNewPos brd pos@(Position rank file) = case getSquare pos brd of
   occupiedBy' = occupiedBy brd
   reaches clr = map (reach False brd pos clr)
 
--- Return available reach in the given direction.
+-- |Return a piece's /reach/ in the given direction,
+-- as the list of possible new positions in that direction.
+--
+-- __Note:__ For more efficient calculation of just the /length/ of the
+-- reach, use `Chess.Play.reachLen`.
+--
+-- __Note:__ The first argument, when @True@, causes the function to
+-- calculate /coverage/, as opposed to /movement/, the two differing by
+-- one square when the final square is occupied by a player of the same
+-- color.
 reach :: Bool -> Board -> Position -> Player -> Direction -> [Position]
 reach cover brd position color dir =
   unfoldr ( \(pos, haveCaptured) ->
@@ -120,7 +147,7 @@ reach cover brd position color dir =
                 else makeMove cover brd pos color dir
           ) (position, False)
 
--- Return the list of positions covered by a piece.
+-- |Return the list of positions covered by a piece.
 coveredPos :: Board -> Position -> [Position]
 coveredPos brd pos@(Position rank file) = case getSquare pos brd of
   Empty                -> []
@@ -145,18 +172,19 @@ coveredPos brd pos@(Position rank file) = case getSquare pos brd of
  where
   reaches clr = map (reach True brd pos clr)
 
+-- |All positions covered by the given player.
 coveredBy :: Player -> Board -> [Position]
 coveredBy clr brd = concatMap (coveredPos brd) (positionsByPlayer brd clr)
 
 {-# INLINE coveredBy #-}
 
--- Is a particular player's King in check?
+-- |Is a particular player's King in check?
 inCheck :: Player -> Board -> Bool
 inCheck clr brd = kingPos clr brd `elem` coveredBy (otherColor clr) brd
 
--- Make requested move if possible and report whether a piece was captured.
+-- |Make requested move if possible and report whether a piece was captured.
 --
--- If the first argument is true then check _coverage_, as opposed to _mobillity_.
+-- If the first argument is true then check /coverage/, as opposed to /mobillity/.
 makeMove :: Bool -> Board -> Position -> Player -> Direction -> Maybe (Position, (Position, Bool))
 makeMove cover brd pos color dir = do
   nextPos <- move dir pos
@@ -167,9 +195,9 @@ makeMove cover brd pos color dir = do
         else Nothing
     _ -> return (nextPos, (nextPos, False))
 
--- Calculate new position, based on current position and movement direction.
+-- |Calculate new position, based on current position and movement direction.
 --
--- Checks that new square is on the board, but not that it is unoccupied!
+-- __Note:__ Checks that new square is on the board, but /not/ that it is unoccupied!
 move :: Direction -> Position -> Maybe Position
 move dir (Position rank file) = mkPosition $ case dir of
   U  -> (rank+1, file)

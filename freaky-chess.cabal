@@ -28,7 +28,6 @@ library
       Chess.Moves
       Chess.Play
       Chess.Types
-      Lib
   other-modules:
       Paths_freaky_chess
   hs-source-dirs:

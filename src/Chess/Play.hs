@@ -5,6 +5,22 @@
 --
 -- Copyright (c) 2023 David Banas; all rights reserved World wide.
 
+{-# OPTIONS_HADDOCK show-extensions #-}
+
+{-|
+Module      : Chess.Play
+Description : Execution of Chess play, both manual and automatic.
+Copyright   : (c) David Banas, 2023; all rights reserved World wide.
+License     : BSD-3
+Maintainer  : capn.freako@gmail.com
+Stability   : experimental
+Portability : 'stack' LTS 20.17; ASCII
+
+Functions for executing the play of a Chess game from start to finish.
+Both manual play, according to typed movement commands, as well as
+automatic play, based on N-move pruned look ahead under certain board
+evaluatiion heuristics, are supported.
+-}
 module Chess.Play where
 
 import qualified Data.Vector as V
@@ -18,10 +34,13 @@ import Data.Maybe    (catMaybes)
 import Chess.Types
 import Chess.Moves
 
--- Choose best move, based on given look ahead, returning score.
+-- |Choose best move, based on given look ahead, returning score.
 --
--- Note: The returned score corresponds to a board `n` moves ahead.
-bestMove :: Int -> Player -> Board -> ((Int, Board), Int)  -- ((score, board), # of moves tried)
+-- __Note:__ The returned score corresponds to a board @N@ moves ahead.
+bestMove :: Int                  -- ^Moves to look ahead. (0 just makes the best next move.)
+         -> Player               -- ^The player making this move.
+         -> Board                -- ^The board, just before this next move gets made.
+         -> ((Int, Board), Int)  -- ^((future projected score, new board), total # of moves tried)
 bestMove n clr brd = case n of
   0 -> case sortFor clr (sortOn fst) $ map (rankBoard &&& id) newBoards of
     []  -> ((rankBoard brd, brd), 0)
@@ -44,6 +63,7 @@ bestMove n clr brd = case n of
   prune = map snd . take 10 . sortFor clr (sortOn (fst . fst . fst)) . map (bestMove 0 clr' &&& id)
   clr' = otherColor clr
 
+-- |List of new boards corresponding to all possible moves by the given player.
 allMoves :: Player -> Board -> [Board]
 allMoves clr brd = filter (not . inCheck clr) (normalMoves ++ catMaybes castleMoves)
  where
@@ -66,36 +86,43 @@ allMoves clr brd = filter (not . inCheck clr) (normalMoves ++ catMaybes castleMo
 type BoardScore  = Board -> Int
 type PlayerScore = Player -> BoardScore
 
+-- |Total board score as: white score - black score, according to a particular heuristic.
 tally :: PlayerScore -> BoardScore
 tally f brd = f Wht brd - f Blk brd
 
+-- |Score the board.
 rankBoard :: BoardScore
 rankBoard brd = material brd + mobility brd + center brd + pawnStructure brd
 
--- The following board evaluation heuristics all follow the same pattern
--- of using the `tally` function, above, in conjunction with a helper
--- function, which is player-specific.
--- These helper functions may be written in one of two styles:
---
--- * "right-to-left" - Using this style, which tends to be more common
---     among programmers and mathematicians, a composite function grows
---     outward, as we move from right to left in the line of code
---     defining it. So, for instance, the `mobilityByPlayer` function:
---
---     * first applies the `positionsByPlayer` function to its arguments,
---     * then maps the composite function: `length . validNewPos brd`,
---       over those results, and
---     * finally, sums the result of that mapping.
---
--- * "left-to-right" - Using this style, we do the opposite: send the
---     arguments into the left side of a "function chain", gathering
---     the final output at the right end of the line of code.
---     (See the `pawnStructureByPlayer` function, for an examle of this style.)
---     This may be a more intuitive way to write heuristics for those
---     not from a programming or mathematical background.
---
--- Note that this style choice is a syntactical one only.
--- Either style may be used to achieve precisely the same computation.
+-- * Board Scoring Heuristics
+
+{- $heuristics
+
+The following board evaluation heuristics all follow the same pattern
+of using the `tally` function, above, in conjunction with a helper
+function, which is player-specific.
+These helper functions may be written in one of two styles:
+
+    * "right-to-left" - Using this style, which tends to be more common
+        among programmers and mathematicians, a composite function grows
+        outward, as we move from right to left in the line of code
+        defining it. So, for instance, the `mobilityByPlayer` function:
+
+        * first applies the `positionsByPlayer` function to its arguments,
+        * then maps the composite function: `length . validNewPos brd`,
+          over those results, and
+        * finally, sums the result of that mapping.
+
+    * "left-to-right" - Using this style, we do the opposite: send the
+        arguments into the left side of a "function chain", gathering
+        the final output at the right end of the line of code.
+        (See the `pawnStructureByPlayer` function, for an examle of this style.)
+        This may be a more intuitive way to write heuristics for those
+        not from a programming or mathematical background.
+
+Note that this style choice is a syntactical one only.
+Either style may be used to achieve precisely the same computation.
+-}
 
 material :: BoardScore
 material = tally materialByPlayer
@@ -139,7 +166,7 @@ totalSpan brd color pos = case getSquare pos brd of
   Occupied _ Q -> sum $ map (reachLen brd color pos) allDirs
   _            -> 0
 
--- Reachable distance from position in given direction.
+-- |Reachable distance from position in given direction.
 reachLen :: Board -> Player -> Position -> Direction -> Int
 reachLen brd clr pos dir = reachCount 0 brd clr positions
  where

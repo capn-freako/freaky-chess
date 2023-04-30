@@ -10,6 +10,19 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TupleSections #-}
 
+{-# OPTIONS_HADDOCK show-extensions #-}
+
+{-|
+Module      : Main
+Description : Top level REPL loop for the @freaky-chess@ application.
+Copyright   : (c) David Banas, 2023; all rights reserved World wide.
+License     : BSD-3
+Maintainer  : capn.freako@gmail.com
+Stability   : experimental
+Portability : 'stack' LTS 20.17; ASCII
+
+Processes white player's move commands and generates black's responses until game ends.
+-}
 module Main (main) where
 
 import Control.Foldl            (mean, fold)
@@ -23,6 +36,7 @@ import Chess.Moves
 import Chess.Play
 import Chess.Types
 
+-- |Run the game to completion and print out average performance and score history.
 main :: IO ()
 main = do
   (scores, perfs) <- unzip <$> unfoldM iter [(0, (newGame, newGame), 0)]
@@ -31,6 +45,7 @@ main = do
   putStrLn "Score history:"
   forM_ scores print
 
+-- |The main iterator, i.e., the "meat of the act".
 iter :: [(Int, (Board, Board), Int)] -> IO (Maybe ((Int, Int), [(Int, (Board, Board), Int)]))
 iter previousMoves = do
   let (score, (boardAfterLastWhiteMove, brd), perf) = last previousMoves
@@ -80,6 +95,7 @@ iter previousMoves = do
                             ++ show nSecs ++ " seconds (" ++ show perf'' ++ " moves/s)."
                           return $ Just ((score'', perf''), previousMoves ++ [(score'', (brd', brd''), perf'')])
 
+-- |Evaluate a command typed by white player.
 evalCmd :: Board -> String -> Either String Board
 evalCmd brd cmd =
   foldM
@@ -105,7 +121,9 @@ evalCmd brd cmd =
  where
   parsedCmds = parseCmd cmd
 
--- List supports castling, which requires two moves.
+-- |Parse the text of white player's command.
+--
+-- @List@ result supports castling, which requires two moves.
 parseCmd :: String -> [Either String ((Position, Position), Bool)]
 parseCmd cmd = case words cmd of
   []            -> [Left "Empty command string!"]
@@ -119,6 +137,7 @@ parseCmd cmd = case words cmd of
       []     -> [Left "Missing destination square!"]
       to : _ -> map (fmap (, False)) [decodeSquares (from, to)]
 
+-- |Convert from standard Chess notation (i.e. - "e2") to zero based rank/file indices.
 decodeSquares :: (String, String) -> Either String (Position, Position)
 decodeSquares (wrd1, wrd2) = do
   from <- decodeSquare wrd1
@@ -138,7 +157,7 @@ decodeSquare str = case str of
                             Nothing   -> Left $ "Invalid position: " ++ fileChar : [rankChar]
                             Just pos' -> Right pos'
 
--- Trace/debug last AI move selection.
+-- |Trace/debug last AI move selection.
 doTrace :: Int -> Player -> Board -> IO ()
 doTrace n clr brd = do
   let ((score, brd'), _) = bestMove n clr brd
