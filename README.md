@@ -12,7 +12,7 @@ You'll find that:
 
 1. Fork this repository:
 
-    ![Forking Screen Shot](img/Forking_ScrnSht.png)
+    ![Forking Screen Shot](img/Forking_ScrnShot.png)
 
 2. Follow the remaining instructions, below, but in step 3 clone your new fork, instead of this repository.
 
