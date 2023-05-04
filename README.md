@@ -8,6 +8,18 @@ You'll find that:
 
 ## Quick Start Installation Instructions
 
+**Note:** If you intend to participate in the _development_ of the code then:
+
+1. Fork this repository:
+
+    ![Forking Screen Shot](img/Forking_ScrnSht.png)
+
+2. Follow the remaining instructions, below, but in step 3 clone your new fork, instead of this repository.
+
+3. When you're ready to contribute your first improvement and/or bug fix, contact me and I'll walk you through the process of submitting a GitHub _Pull Request_.
+
+If you just want to install and play `freaky-chess` then follow these instructions:
+
 1. [Install _Git_](https://git-scm.com/downloads).
 2. [Install _Stack_](https://docs.haskellstack.org/en/stable/install_and_upgrade/).
 3. Clone this _Git_ repository:
