@@ -26,9 +26,9 @@ module Chess.Play where
 import qualified Data.Vector as V
 
 import Control.Arrow ((&&&), (>>>))
-import Data.Function ((&))
+import Data.Function ((&), on)
 import Data.HashMap.Strict ((!))
-import Data.List     (sortOn)
+import Data.List     (sortOn, maximumBy, minimumBy)
 import Data.Maybe    (catMaybes)
 
 import Chess.Types
@@ -41,24 +41,27 @@ bestMove :: Int                  -- ^Moves to look ahead. (0 just makes the best
          -> Player               -- ^The player making this move.
          -> Board                -- ^The board, just before this next move gets made.
          -> ((Int, Board), Int)  -- ^((future projected score, new board), total # of moves tried)
-bestMove n clr brd = case n of
-  0 -> case sortFor clr (sortOn fst) $ map (rankBoard &&& id) newBoards of
-    []  -> ((rankBoard brd, brd), 0)
-    x:_ -> (x, length newBoards)
-  _ -> let nextResults = map (bestMove (n-1) clr' &&& id) $ prune newBoards
-           nMoves      = sum $ map (snd . fst) nextResults
-           (futureScore, bestMv) = case sortFor clr sortNextResults nextResults of
-             []                                    -> (rankBoard brd, brd)
-             (((futureScore', _), _), bestMv') : _ -> (futureScore', bestMv')
-        in ((futureScore, bestMv), nMoves)
+bestMove n clr brd = case newBoards of
+  [] -> ((rankBoard brd, brd), 0)  -- No moves available.
+  _  ->
+    if n == 0
+      then (bestFor fst clr scoredNewBoards, length newBoards)
+      else let nextResults = map (bestMove (n-1) clr' &&& id) $ prune newBoards
+               nMoves      = sum $ map (snd . fst) nextResults
+               (((futureScore, _), _), bestMv) = bestFor (fst . fst . fst) clr nextResults
+            in ((futureScore, bestMv), nMoves)
  where
-  sortNextResults :: Ord a => [(((a,b), c), Board)] -> [(((a,b), c), Board)]
-  sortNextResults = sortOn (fst . fst . fst)
+  bestFor :: (Ord b) => (a -> b) -> Player -> [a] -> a
+  bestFor f = \case
+    Wht -> maximumBy (compare `on` f)
+    Blk -> minimumBy (compare `on` f)
   sortFor :: Player -> ([a] -> [a]) -> [a] -> [a]
   sortFor Wht sorter = reverse . sorter
   sortFor Blk sorter = sorter
   newBoards :: [Board]
   newBoards = allMoves clr brd
+  scoredNewBoards :: [(Int, Board)]
+  scoredNewBoards = map (rankBoard &&& id) newBoards
   prune :: [Board] -> [Board]
   prune = map snd . take 10 . sortFor clr (sortOn (fst . fst . fst)) . map (bestMove 0 clr' &&& id)
   clr' = otherColor clr
