@@ -46,7 +46,7 @@ bestMove n clr brd = case newBoards of
   _  ->
     if n == 0
       then (bestFor fst clr scoredNewBoards, length newBoards)
-      else let nextResults = map (bestMove (n-1) clr' &&& id) $ prune newBoards
+      else let nextResults = map (bestMove (n-1) clr' &&& id) prunedNewBoards
                nMoves      = sum $ map (snd . fst) nextResults
                (((futureScore, _), _), bestMv) = bestFor (fst . fst . fst) clr nextResults
             in ((futureScore, bestMv), nMoves)
@@ -62,8 +62,9 @@ bestMove n clr brd = case newBoards of
   newBoards = allMoves clr brd
   scoredNewBoards :: [(Int, Board)]
   scoredNewBoards = map (rankBoard &&& id) newBoards
-  prune :: [Board] -> [Board]
-  prune = map snd . take 10 . sortFor clr (sortOn (fst . fst . fst)) . map (bestMove 0 clr' &&& id)
+  prunedNewBoards :: [Board]
+  prunedNewBoards = map snd $ take 20 $ sortFor clr (sortOn (fst . fst . fst))
+                  $ map (bestMove 0 clr' &&& id) newBoards
   clr' = otherColor clr
 
 -- |List of new boards corresponding to all possible moves by the given player.
