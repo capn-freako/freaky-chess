@@ -25,47 +25,103 @@ module Chess.Play where
 
 import qualified Data.Vector as V
 
-import Control.Arrow ((&&&), (>>>))
+import Control.Arrow ((>>>))  -- , (&&&))
 import Data.Function ((&), on)
 import Data.HashMap.Strict ((!))
-import Data.List     (sortOn, maximumBy, minimumBy)
+-- import Data.List     (sortOn, maximumBy, minimumBy)
 import Data.Maybe    (catMaybes)
 
 import Chess.Types
 import Chess.Moves
 
+type ScoredBoard = ((Int, Board), Int)  -- ^((future projected score, new board), total # of moves tried)
+
+-- These (unused) instances are required, to satisfy the type checker
+-- that `ScoredBoard` is an instance of `Ord`.
+instance Eq Board where
+  (==) = (==) `on` rankBoard
+
+instance Ord Board where
+  compare = compare `on` rankBoard
+
+scoreBoard :: Board -> ScoredBoard
+scoreBoard brd = ((rankBoard brd, brd), 1)
+
 -- |Choose best move, based on given look ahead, returning score.
 --
+-- To understand this code, read Mitchel Wand's paper:
+-- /Continuation Passing Style Program Transformations/.
+-- In particular, see Sec. 5.1.
+--
+-- __Note:__ This is the /F5/ function from Sec. 5.1 of Wand's paper.
+--
 -- __Note:__ The returned score corresponds to a board @N@ moves ahead.
-bestMove :: Int                  -- ^Moves to look ahead. (0 just makes the best next move.)
-         -> Player               -- ^The player making this move.
-         -> Board                -- ^The board, just before this next move gets made.
-         -> ((Int, Board), Int)  -- ^((future projected score, new board), total # of moves tried)
-bestMove n clr brd = case newBoards of
-  [] -> ((rankBoard brd, brd), 0)  -- No moves available.
-  _  ->
-    if n == 0
-      then (bestFor fst clr scoredNewBoards, length newBoards)
-      else let nextResults = map (bestMove (n-1) clr' &&& id) prunedNewBoards
-               nMoves      = sum $ map (snd . fst) nextResults
-               (((futureScore, _), _), bestMv) = bestFor (fst . fst . fst) clr nextResults
-            in ((futureScore, bestMv), nMoves)
+bestMove :: Int          -- ^Moves to look ahead. (0 just returns the scored board.)
+         -> ScoredBoard  -- ^Current minimum scored board.
+         -> ScoredBoard  -- ^Current maximum scored board.
+         -> Player       -- ^The player making this move.
+         -> Board        -- ^The board, just before this next move gets made.
+         -> ScoredBoard  -- ^((future projected score, new board), total # of moves tried)
+bestMove n brdMin brdMax clr brd = case n of
+  0 -> case clr of                       -- A "leaf" in Wand's parlance.
+    Wht -> max' brdMin (min' brdMax scoredBoard)
+    Blk -> min' brdMax (max' brdMin scoredBoard)
+  _ -> g5 n brdMin brdMax clr newBoards  -- Still descending.
  where
-  bestFor :: (Ord b) => (a -> b) -> Player -> [a] -> a
-  bestFor f = \case
-    Wht -> maximumBy (compare `on` f)
-    Blk -> minimumBy (compare `on` f)
-  sortFor :: Player -> ([a] -> [a]) -> [a] -> [a]
-  sortFor Wht sorter = reverse . sorter
-  sortFor Blk sorter = sorter
+  -- bestFor :: Player -> ScoredBoard
+  -- bestFor = \case
+  --   Wht -> max' brdMin $ min' brdMax maximum'
+  --   Blk -> min' brdMax $ max' brdMin minimum'
+  max' :: ScoredBoard -> ScoredBoard -> ScoredBoard
+  max' (b1, n1) (b2, n2) = (max b1 b2, n1+n2)
+  min' :: ScoredBoard -> ScoredBoard -> ScoredBoard
+  min' (b1, n1) (b2, n2) = (min b1 b2, n1+n2)
+  -- maximum' :: ScoredBoard
+  -- maximum' = (maximumBy (compare `on` fst) scoredBoards, length scoredBoards)
+  -- minimum' :: ScoredBoard
+  -- minimum' = (minimumBy (compare `on` fst) scoredBoards, length scoredBoards)
+  -- scoredBoards :: [(Int, Board)]
+  scoredBoard = scoreBoard brd
+  -- sortFor :: Player -> ([a] -> [a]) -> [a] -> [a]
+  -- sortFor Wht sorter = reverse . sorter
+  -- sortFor Blk sorter = sorter
   newBoards :: [Board]
   newBoards = allMoves clr brd
-  scoredNewBoards :: [(Int, Board)]
-  scoredNewBoards = map (rankBoard &&& id) newBoards
-  prunedNewBoards :: [Board]
-  prunedNewBoards = map snd $ take 20 $ sortFor clr (sortOn (fst . fst . fst))
-                  $ map (bestMove 0 clr' &&& id) newBoards
-  clr' = otherColor clr
+  -- scoredNewBoards :: [(Int, Board)]
+  -- scoredNewBoards = map (rankBoard &&& id) newBoards
+  -- prunedNewBoards :: [Board]
+  -- prunedNewBoards = map snd $ take (20 - 2*n) $ sortFor clr (sortOn (fst . fst . fst))
+  --                 $ map (bestMove 0 clr' &&& id) newBoards
+  -- clr' = otherColor clr
+
+g5 :: Int            -- ^Moves to look ahead. (0 just makes the best next move.)
+   -> ScoredBoard    -- ^Current minimum score board.
+   -> ScoredBoard    -- ^Current maximum score board.
+   -> Player         -- ^The player making this move.
+   -> [Board]        -- ^The possible next boards.
+   -> ScoredBoard    -- ^The best one.
+g5 n brdMin brdMax clr = \case
+  [] -> error "Whoops! `g5` called with an empty list of next possible boards."
+  brd : brds ->
+    let nextBest = bestMove (n-1) brdMin brdMax (otherColor clr) brd
+     in case brds of
+          [] -> nextBest
+          _  -> h5 n brdMin brdMax clr brds nextBest
+
+h5 :: Int            -- ^Moves to look ahead. (0 just makes the best next move.)
+   -> ScoredBoard    -- ^Current minimum score board.
+   -> ScoredBoard    -- ^Current maximum score board.
+   -> Player         -- ^The player making this move.
+   -> [Board]        -- ^The possible next boards.
+   -> ScoredBoard    -- ^The next child to check, for branch pruning.
+   -> ScoredBoard    -- ^The best one.
+h5 n brdMin brdMax clr brds brdThis = case clr of
+  Wht -> if brdThis > brdMax
+           then brdThis
+           else g5 n brdThis brdMax clr brds
+  Blk -> if brdThis < brdMin
+           then brdThis
+           else g5 n brdMin brdThis clr brds
 
 -- |List of new boards corresponding to all possible moves by the given player.
 allMoves :: Player -> Board -> [Board]
