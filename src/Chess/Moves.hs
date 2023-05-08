@@ -44,7 +44,7 @@ movesFromSquare color brd pos = case getSquare pos brd of
 
 -- |Updates board state according to given move, if allowed.
 movePiece :: Position -> Position -> Board -> Maybe Board
-movePiece oldPos@(Position rank file) newPos brd@(Board _ _ _ whtSquares blkSquares _ _) =
+movePiece oldPos@(Position rank file) newPos@(Position rank' file') brd@(Board _ _ _ whtSquares blkSquares _ _) =
   if inCheck color newBoard
     then Nothing
     else Just newBoard
@@ -59,32 +59,55 @@ movePiece oldPos@(Position rank file) newPos brd@(Board _ _ _ whtSquares blkSqua
             Blk -> newBoard'{ occupiedByBlk = Set.insert (piece, newPos)
                                             $ Set.delete (piece, oldPos) blkSquares
                             }
+          rsltBoard''
+            | rank' == 0
+            = if file' == 0 then
+                  rsltBoard' {moved = insert "WQR" True rsltBoard'.moved}
+              else
+                  if file' == 7 then
+                      rsltBoard' {moved = insert "WKR" True rsltBoard'.moved}
+                  else
+                      rsltBoard'
+            | rank' == 7
+            = if file' == 0 then
+                  rsltBoard' {moved = insert "BQR" True rsltBoard'.moved}
+              else
+                  if file' == 7 then
+                      rsltBoard' {moved = insert "BKR" True rsltBoard'.moved}
+                  else
+                      rsltBoard'
+            | otherwise = rsltBoard'
           rsltBoard = case piece of
             K -> case clr of
-              Wht -> rsltBoard'{ moved = insert "WK" True rsltBoard'.moved
+              Wht -> rsltBoard''{ moved = insert "WK" True rsltBoard''.moved
                                , whiteKingPos = newPos
                                }
-              Blk -> rsltBoard'{ moved = insert "BK" True rsltBoard'.moved
+              Blk -> rsltBoard''{ moved = insert "BK" True rsltBoard''.moved
                                , blackKingPos = newPos
                                }
             R -> case clr of
               Wht -> if rank == 0 && file == 0
-                       then rsltBoard'{moved = insert "WQR" True rsltBoard'.moved}
+                       then rsltBoard''{moved = insert "WQR" True rsltBoard''.moved}
                        else if rank == 0 && file == 7
-                              then rsltBoard'{moved = insert "WKR" True rsltBoard'.moved}
-                              else rsltBoard'
+                              then rsltBoard''{moved = insert "WKR" True rsltBoard''.moved}
+                              else rsltBoard''
               Blk -> if rank == 7 && file == 0
-                       then rsltBoard'{moved = insert "BQR" True rsltBoard'.moved}
+                       then rsltBoard''{moved = insert "BQR" True rsltBoard''.moved}
                        else if rank == 7 && file == 7
-                              then rsltBoard'{moved = insert "BKR" True rsltBoard'.moved}
-                              else rsltBoard'
-            _ -> rsltBoard'
+                              then rsltBoard''{moved = insert "BKR" True rsltBoard''.moved}
+                              else rsltBoard''
+            _ -> rsltBoard''
        in case getSquare newPos brd of            -- Handle capture if necessary.
             Occupied clr' piece' -> case clr' of  -- Capture occured.
               Wht -> (clr, rsltBoard{occupiedByWht = Set.delete (piece', newPos) rsltBoard.occupiedByWht})
               Blk -> (clr, rsltBoard{occupiedByBlk = Set.delete (piece', newPos) rsltBoard.occupiedByBlk})
             _ -> (clr, rsltBoard)                 -- No capture occured.
-    _ -> error "Oops! This should never happen."
+    _ -> error $ "Oops! This should never happen."
+              ++ "\nHere're the occupied squares:\n"
+              ++ "Wht: " ++ show brd.occupiedByWht ++ "\n"
+              ++ "Blk: " ++ show brd.occupiedByBlk ++ "\n"
+              ++ "And the move requested was: " ++ show oldPos ++ " => " ++ show newPos
+              ++ "\n"
 
 -- |Return the list of valid new positions for a piece.
 --

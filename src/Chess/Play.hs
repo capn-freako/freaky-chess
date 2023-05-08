@@ -25,103 +25,93 @@ module Chess.Play where
 
 import qualified Data.Vector as V
 
-import Control.Arrow ((>>>))  -- , (&&&))
+import Control.Arrow ((>>>))
 import Data.Function ((&), on)
 import Data.HashMap.Strict ((!))
--- import Data.List     (sortOn, maximumBy, minimumBy)
+import Data.List     (maximumBy, minimumBy)
 import Data.Maybe    (catMaybes)
 
 import Chess.Types
 import Chess.Moves
 
-type ScoredBoard = ((Int, Board), Int)  -- ^((future projected score, new board), total # of moves tried)
-
--- These (unused) instances are required, to satisfy the type checker
--- that `ScoredBoard` is an instance of `Ord`.
-instance Eq Board where
-  (==) = (==) `on` rankBoard
-
-instance Ord Board where
-  compare = compare `on` rankBoard
+-- |((new board, future projected score), total # of boards scored)
+type ScoredBoard = ((Board, Int), Int)
 
 scoreBoard :: Board -> ScoredBoard
-scoreBoard brd = ((rankBoard brd, brd), 1)
+scoreBoard brd = ((brd, rankBoard brd), 1)
 
 -- |Choose best move, based on given look ahead, returning score.
 --
--- To understand this code, read Mitchel Wand's paper:
--- /Continuation Passing Style Program Transformations/.
--- In particular, see Sec. 5.1.
---
--- __Note:__ This is the /F5/ function from Sec. 5.1 of Wand's paper.
---
 -- __Note:__ The returned score corresponds to a board @N@ moves ahead.
 bestMove :: Int          -- ^Moves to look ahead. (0 just returns the scored board.)
-         -> ScoredBoard  -- ^Current minimum scored board.
-         -> ScoredBoard  -- ^Current maximum scored board.
          -> Player       -- ^The player making this move.
-         -> Board        -- ^The board, just before this next move gets made.
-         -> ScoredBoard  -- ^((future projected score, new board), total # of moves tried)
-bestMove n brdMin brdMax clr brd = case n of
-  0 -> case clr of                       -- A "leaf" in Wand's parlance.
-    Wht -> max' brdMin (min' brdMax scoredBoard)
-    Blk -> min' brdMax (max' brdMin scoredBoard)
-  _ -> g5 n brdMin brdMax clr newBoards  -- Still descending.
+         -> Board        -- ^The existing board.
+         -> ScoredBoard
+bestMove n clr brd = case n of
+  0 -> scoreBoard brd
+  _ -> case clr of
+    Wht -> (maximumBy (compare `on` snd) scoredBoards, totalMoves)
+    Blk -> (minimumBy (compare `on` snd) scoredBoards, totalMoves)
  where
-  -- bestFor :: Player -> ScoredBoard
-  -- bestFor = \case
-  --   Wht -> max' brdMin $ min' brdMax maximum'
-  --   Blk -> min' brdMax $ max' brdMin minimum'
-  max' :: ScoredBoard -> ScoredBoard -> ScoredBoard
-  max' (b1, n1) (b2, n2) = (max b1 b2, n1+n2)
-  min' :: ScoredBoard -> ScoredBoard -> ScoredBoard
-  min' (b1, n1) (b2, n2) = (min b1 b2, n1+n2)
-  -- maximum' :: ScoredBoard
-  -- maximum' = (maximumBy (compare `on` fst) scoredBoards, length scoredBoards)
-  -- minimum' :: ScoredBoard
-  -- minimum' = (minimumBy (compare `on` fst) scoredBoards, length scoredBoards)
-  -- scoredBoards :: [(Int, Board)]
-  scoredBoard = scoreBoard brd
-  -- sortFor :: Player -> ([a] -> [a]) -> [a] -> [a]
-  -- sortFor Wht sorter = reverse . sorter
-  -- sortFor Blk sorter = sorter
-  newBoards :: [Board]
-  newBoards = allMoves clr brd
-  -- scoredNewBoards :: [(Int, Board)]
-  -- scoredNewBoards = map (rankBoard &&& id) newBoards
-  -- prunedNewBoards :: [Board]
-  -- prunedNewBoards = map snd $ take (20 - 2*n) $ sortFor clr (sortOn (fst . fst . fst))
-  --                 $ map (bestMove 0 clr' &&& id) newBoards
-  -- clr' = otherColor clr
+  newBoards    = allMoves clr brd
+  f5Rslts      = map (f5 n (-20000) 20000 (otherColor clr) 0) newBoards
+  boardScores  = map fst f5Rslts
+  totalMoves   = sum $ map snd f5Rslts
+  scoredBoards = zip newBoards boardScores
 
-g5 :: Int            -- ^Moves to look ahead. (0 just makes the best next move.)
-   -> ScoredBoard    -- ^Current minimum score board.
-   -> ScoredBoard    -- ^Current maximum score board.
-   -> Player         -- ^The player making this move.
-   -> [Board]        -- ^The possible next boards.
-   -> ScoredBoard    -- ^The best one.
-g5 n brdMin brdMax clr = \case
+-- |To understand this code, read Mitchel Wand's paper:
+-- /Continuation-Based Program Transformation Strategies/.
+-- In particular, see Sec. 5.1.
+--
+-- |The /F5/ function from Sec. 5.1 of Wand's paper.
+f5 :: Int         -- ^Moves to look ahead.
+   -> Int         -- ^Current minimum score.
+   -> Int         -- ^Current maximum score.
+   -> Player      -- ^The player making the next move.
+   -> Int         -- ^Number of boards scored.
+   -> Board       -- ^The board to assess.
+   -> (Int, Int)  -- ^(future score, # of boards scored)
+f5 n alpha beta clr m brd = case n of
+  0 -> leafRslts
+  _ -> case newBoards of
+    [] -> leafRslts
+    _  -> g5 n alpha beta clr m newBoards
+ where
+  newBoards = allMoves clr brd
+  leafRslts = (max alpha (min beta (rankBoard brd)), m+1)
+
+-- |The /G5/ function from Sec. 5.1 of Wand's paper.
+g5 :: Int         -- ^Moves to look ahead.
+   -> Int         -- ^Current minimum score.
+   -> Int         -- ^Current maximum score.
+   -> Player      -- ^The player making this move.
+   -> Int         -- ^Number of boards scored.
+   -> [Board]     -- ^The possible next boards.
+   -> (Int, Int)  -- ^(future score, # of boards scored)
+g5 n alpha beta clr m = \case
   [] -> error "Whoops! `g5` called with an empty list of next possible boards."
   brd : brds ->
-    let nextBest = bestMove (n-1) brdMin brdMax (otherColor clr) brd
+    let (score, m') = f5 (n-1) alpha beta (otherColor clr) m brd
      in case brds of
-          [] -> nextBest
-          _  -> h5 n brdMin brdMax clr brds nextBest
+          [] -> (score, m')
+          _  -> h5 n alpha beta clr m' brds score
 
-h5 :: Int            -- ^Moves to look ahead. (0 just makes the best next move.)
-   -> ScoredBoard    -- ^Current minimum score board.
-   -> ScoredBoard    -- ^Current maximum score board.
-   -> Player         -- ^The player making this move.
-   -> [Board]        -- ^The possible next boards.
-   -> ScoredBoard    -- ^The next child to check, for branch pruning.
-   -> ScoredBoard    -- ^The best one.
-h5 n brdMin brdMax clr brds brdThis = case clr of
-  Wht -> if brdThis > brdMax
-           then brdThis
-           else g5 n brdThis brdMax clr brds
-  Blk -> if brdThis < brdMin
-           then brdThis
-           else g5 n brdMin brdThis clr brds
+-- |The /H5/ function from Sec. 5.1 of Wand's paper.
+h5 :: Int         -- ^Moves to look ahead.
+   -> Int         -- ^Current minimum score.
+   -> Int         -- ^Current maximum score.
+   -> Player      -- ^The player making this move.
+   -> Int         -- ^Number of boards scored.
+   -> [Board]     -- ^The possible next boards.
+   -> Int         -- ^The current next best.
+   -> (Int, Int)  -- ^(future score, # of boards scored)
+h5 n alpha beta clr m brds score = case clr of
+  Wht -> if score >= beta
+           then (score, m)
+           else g5 n score beta clr m brds
+  Blk -> if score <= alpha
+           then (score, m)
+           else g5 n alpha score clr m brds
 
 -- |List of new boards corresponding to all possible moves by the given player.
 allMoves :: Player -> Board -> [Board]
