@@ -255,6 +255,8 @@ allPos = [ UnsafePosition (rank, file)
          , file <- [0..7]
          ]
 
+-- |The @printBoard@ and @printRank@ functions /must/ be of type @IO ()@,
+-- because they rely on the @'setSGR'@ function.
 printBoard :: Board -> IO ()
 printBoard brd = do
   V.forM_ (V.reverse $ indexed $ squares brd) $ \rank -> do
