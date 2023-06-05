@@ -36,6 +36,8 @@ import Chess.Moves
 import Chess.Play
 import Chess.Types
 
+lookAheadFactor = 4  -- Should be even, to ensure that White gets the last move.
+
 -- |Run the game to completion and print out average performance and score history.
 main :: IO ()
 main = do
@@ -70,7 +72,7 @@ iter previousMoves = do
                              in return $ Just ((score'', perf''), oldPrevMoves)
                   "trace" -> do putStrLn "*** Tracing AI's projected board evolution, starting from White's last move:"
                                 printBoard boardAfterLastWhiteMove
-                                doTrace 4 Blk boardAfterLastWhiteMove
+                                doTrace lookAheadFactor Blk boardAfterLastWhiteMove
                                 putStrLn "*** End of trace."
                                 return $ Just ((score, perf), previousMoves)
                   _      -> do putStrLn msg
@@ -87,7 +89,7 @@ iter previousMoves = do
                   _ -> do putStr "Thinking..."  -- and calculate Black's response.
                           hFlush stdout
                           (nSecs, (nMoves, score'', brd'')) <- timeItT $ do
-                            let ((!brd'', !futureScore), !nMoves) = bestMove 4 Blk brd'  -- 4 move look ahead
+                            let ((!brd'', !futureScore), !nMoves) = bestMove lookAheadFactor Blk brd'  -- 4 move look ahead
                                 !score''                          = rankBoard brd''
                             return (nMoves, score'', brd'')
                           let perf'' = round $ fromIntegral nMoves / nSecs
@@ -126,7 +128,15 @@ evalCmd brd cmd =
 -- @List@ result supports castling, which requires two moves.
 parseCmd :: String -> [Either String ((Position, Position), Bool)]
 parseCmd cmd = case words cmd of
-  []            -> [Left "Empty command string!"]
+  []            -> [ Left $ unlines [ "Try one of:"
+                                    , "- <from> <to>: Move a piece. (<from>/<to>: e2, for instance)"
+                                    , "- quit:        Quit the game."
+                                    , "- back:        Take back your last move."
+                                    , "- trace:       See why the AI made its last choice."
+                                    , "- o-o:         Castle King side."
+                                    , "- o-o-o:       Castle Queen side."
+                                    ]
+                   ]
   "quit" : _    -> [Left "quit"]
   "back" : _    -> [Left "back"]
   "trace" : _   -> [Left "trace"]
