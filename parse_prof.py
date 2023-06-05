@@ -27,7 +27,7 @@ with open("freaky-chess-exe.prof", 'rt') as file:
             print(line.rstrip())
         else:
             toks = line.split()
-            if toks and "reachCount" in toks[0] and int(toks[4]) > 10_000_000:
+            if toks and "makeMove" in toks[0] and int(toks[4]) > 10_000_000:
                 _indent = indent(line)
                 _ix = ix - 1
                 _lines_to_print = []
@@ -36,7 +36,7 @@ with open("freaky-chess-exe.prof", 'rt') as file:
                     _this_indent = indent(_this_line)
                     if(_this_indent < _indent):
                         _lines_to_print.insert(0, _this_line)
-                        if(_this_indent < 4):
+                        if(_this_indent < 9):
                             break
                         _indent = _this_indent
                     _ix -= 1

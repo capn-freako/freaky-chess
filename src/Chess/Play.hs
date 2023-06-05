@@ -34,6 +34,9 @@ import Data.Maybe    (catMaybes)
 import Chess.Types
 import Chess.Moves
 
+startingMinScore = (-20000)
+startingMaxScore =   20000
+
 -- |((new board, future projected score), total # of boards scored)
 type ScoredBoard = ((Board, Int), Int)
 
@@ -54,7 +57,7 @@ bestMove n clr brd = case n of
     Blk -> (minimumBy (compare `on` snd) scoredBoards, totalMoves)
  where
   newBoards    = allMoves clr brd
-  f5Rslts      = map (f5 n (-20000) 20000 (otherColor clr) 0) newBoards
+  f5Rslts      = map (f5 (n-1) startingMinScore startingMaxScore (otherColor clr) 0) newBoards
   boardScores  = map fst f5Rslts
   totalMoves   = sum $ map snd f5Rslts
   scoredBoards = zip newBoards boardScores
