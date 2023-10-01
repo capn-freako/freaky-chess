@@ -21,9 +21,9 @@ def indent(line):
 with open("freaky-chess-exe.prof", 'rt') as file:
     lines = file.readlines()
     for (ix, line) in enumerate(lines):
-        if ix < 39:
+        if ix < 40:
             next
-        elif ix < 41:
+        elif ix < 42:
             print(line.rstrip())
         else:
             toks = line.split()

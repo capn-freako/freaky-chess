@@ -26,6 +26,7 @@ module Chess.Play where
 import qualified Data.Vector as V
 
 import Control.Arrow ((>>>))
+import Control.Parallel.Strategies (Eval, runEval, rpar)
 import Data.Function ((&), on)
 import Data.HashMap.Strict ((!))
 import Data.List     (maximumBy, minimumBy)
@@ -205,10 +206,18 @@ materialByPlayer color brd = V.sum $ V.map (V.sum . V.map (total color)) $ squar
   value Q = 900
   value K = 10000
 
+parMap :: (a -> b) -> [a] -> Eval [b]
+parMap f [] = return []
+parMap f (a:as) = do
+  b  <- rpar (f a)
+  bs <- parMap f as
+  return (b:bs)
+
 -- Uses "right-to-left" style.
 mobilityByPlayer :: PlayerScore
 mobilityByPlayer clr brd =
-  sum $ map (totalSpan brd clr) $ positionsByPlayer brd clr
+  -- sum $ map (totalSpan brd clr) $ positionsByPlayer brd clr
+  sum $ runEval (parMap (totalSpan brd clr) $ positionsByPlayer brd clr)
 
 -- A more efficient mobility calculator.
 totalSpan :: Board -> Player -> Position -> Int

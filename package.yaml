@@ -26,6 +26,7 @@ dependencies:
 - foldl
 - monad-extras
 - mtl
+- parallel
 - unordered-containers
 - timeit
 - vector
@@ -42,6 +43,7 @@ ghc-options:
 - -Wpartial-fields
 - -Wredundant-constraints
 - -O2
+- -eventlog
 
 library:
   source-dirs: src
@@ -59,6 +61,8 @@ executables:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
+    - -O2
+    - -eventlog
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N

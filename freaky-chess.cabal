@@ -40,7 +40,7 @@ library
       ParallelListComp
       PatternSynonyms
       TupleSections
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -eventlog
   build-depends:
       ansi-terminal
     , base >=4.7 && <5
@@ -48,6 +48,7 @@ library
     , foldl
     , monad-extras
     , mtl
+    , parallel
     , timeit
     , unordered-containers
     , vector
@@ -60,7 +61,7 @@ executable freaky-chess-exe
       Paths_freaky_chess
   hs-source-dirs:
       app
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -eventlog -O2 -eventlog -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       ansi-terminal
     , base >=4.7 && <5
@@ -69,6 +70,7 @@ executable freaky-chess-exe
     , freaky-chess
     , monad-extras
     , mtl
+    , parallel
     , timeit
     , unordered-containers
     , vector
@@ -82,7 +84,7 @@ test-suite freaky-chess-test
       Paths_freaky_chess
   hs-source-dirs:
       test
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -O2 -eventlog -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       ansi-terminal
     , base >=4.7 && <5
@@ -91,6 +93,7 @@ test-suite freaky-chess-test
     , freaky-chess
     , monad-extras
     , mtl
+    , parallel
     , timeit
     , unordered-containers
     , vector
