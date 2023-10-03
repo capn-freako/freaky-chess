@@ -28,6 +28,7 @@ dependencies:
 - mtl
 - parallel
 - unordered-containers
+- sydtest
 - timeit
 - vector
 - yjtools

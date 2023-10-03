@@ -30,12 +30,13 @@ import Control.Monad.Extra      (unfoldM)
 import Control.Monad.State.Lazy
 import Data.Char                (ord)
 import System.IO                (hFlush, stdout)
-import System.TimeIt
+import Test.Syd.Run
 
 import Chess.Moves
 import Chess.Play
 import Chess.Types
 
+lookAheadFactor :: Int
 lookAheadFactor = 4  -- Should be even, to ensure that White gets the last move.
 
 -- |Run the game to completion and print out average performance and score history.
@@ -88,13 +89,16 @@ iter previousMoves = do
                                    return Nothing
                   _ -> do putStr "Thinking..."  -- and calculate Black's response.
                           hFlush stdout
-                          (nSecs, (nMoves, score'', brd'')) <- timeItT $ do
-                            let ((!brd'', !futureScore), !nMoves) = bestMove lookAheadFactor Blk brd'  -- 4 move look ahead
-                                !score''                          = rankBoard brd''
+                          res <- timeItT $ do
+                            let ((!brd'', _), !nMoves) = bestMove lookAheadFactor Blk brd'
+                                !score''               = rankBoard brd''
                             return (nMoves, score'', brd'')
-                          let perf'' = round $ fromIntegral nMoves / nSecs
+                          let (nMoves, score'', brd'') = timedValue res
+                              nSecs                    = timedTime  res
+                          let perf'' = round $ 1.0e9 * fromIntegral nMoves / fromIntegral nSecs
                           putStrLn $ "Done. " ++ show nMoves ++ " moves tried in "
-                            ++ show nSecs ++ " seconds (" ++ show perf'' ++ " moves/s)."
+                            ++ show (fromIntegral nSecs / 1.0e9) ++ " seconds ("
+                            ++ show perf'' ++ " moves/s)."
                           return $ Just ((score'', perf''), previousMoves ++ [(score'', (brd', brd''), perf'')])
 
 -- |Evaluate a command typed by white player.
