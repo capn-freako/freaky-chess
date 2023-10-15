@@ -26,6 +26,7 @@ module Chess.Play where
 import qualified Data.Vector as V
 
 import Control.Arrow ((>>>))
+import Control.Parallel.Strategies (using, parList, rseq)
 import Data.Function ((&), on)
 import Data.HashMap.Strict ((!))
 import Data.List     (maximumBy, minimumBy)
@@ -56,11 +57,19 @@ bestMove n clr brd = case n of
     Wht -> (maximumBy (compare `on` snd) scoredBoards, totalMoves)
     Blk -> (minimumBy (compare `on` snd) scoredBoards, totalMoves)
  where
-  newBoards    = allMoves clr brd
-  f5Rslts      = map (f5 (n-1) startingMinScore startingMaxScore (otherColor clr) 0) newBoards
+  newBoards    = allMoves clr brd  -- Is this the serial culprit?
+  f5Rslts      = map (f5 (n-1) startingMinScore startingMaxScore (otherColor clr) 0) newBoards `using` parList rseq
   boardScores  = map fst f5Rslts
-  totalMoves   = sum $ map snd f5Rslts
+  totalMoves   = sum $ map snd f5Rslts  -- Attempt at parallelization yielded no perf. improvement.
   scoredBoards = zip newBoards boardScores
+
+split :: Int -> [a] -> [[a]]
+split numChunks xs = chunk (length xs `quot` numChunks) xs
+
+chunk :: Int -> [a] -> [[a]]
+chunk n [] = []
+chunk n xs = as : chunk n bs
+  where (as,bs) = splitAt n xs
 
 -- |To understand this code, read Mitchel Wand's paper:
 -- /Continuation-Based Program Transformation Strategies/.
