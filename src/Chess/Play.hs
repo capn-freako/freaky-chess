@@ -63,13 +63,13 @@ bestMove n clr brd = case n of
   totalMoves   = sum $ map snd f5Rslts  -- Attempt at parallelization yielded no perf. improvement.
   scoredBoards = zip newBoards boardScores
 
-split :: Int -> [a] -> [[a]]
-split numChunks xs = chunk (length xs `quot` numChunks) xs
+-- split :: Int -> [a] -> [[a]]
+-- split numChunks xs = chunk (length xs `quot` numChunks) xs
 
-chunk :: Int -> [a] -> [[a]]
-chunk n [] = []
-chunk n xs = as : chunk n bs
-  where (as,bs) = splitAt n xs
+-- chunk :: Int -> [a] -> [[a]]
+-- chunk n [] = []
+-- chunk n xs = as : chunk n bs
+--   where (as,bs) = splitAt n xs
 
 -- |To understand this code, read Mitchel Wand's paper:
 -- /Continuation-Based Program Transformation Strategies/.
@@ -106,24 +106,31 @@ g5 n alpha beta clr m = \case
     let (score, m') = f5 (n-1) alpha beta (otherColor clr) m brd
      in case brds of
           [] -> (score, m')
-          _  -> h5 n alpha beta clr m' brds score
+          -- _  -> h5 n alpha beta clr m' brds score
+          _  -> case clr of
+                  Wht -> if score >= beta
+                           then (score, m')
+                           else g5 n score beta clr m' brds
+                  Blk -> if score <= alpha
+                           then (score, m')
+                           else g5 n alpha score clr m' brds
 
 -- |The /H5/ function from Sec. 5.1 of Wand's paper.
-h5 :: Int         -- ^Moves to look ahead.
-   -> Int         -- ^Current minimum score.
-   -> Int         -- ^Current maximum score.
-   -> Player      -- ^The player making this move.
-   -> Int         -- ^Number of boards scored.
-   -> [Board]     -- ^The possible next boards.
-   -> Int         -- ^The current next best.
-   -> (Int, Int)  -- ^(future score, # of boards scored)
-h5 n alpha beta clr m brds score = case clr of
-  Wht -> if score >= beta
-           then (score, m)
-           else g5 n score beta clr m brds
-  Blk -> if score <= alpha
-           then (score, m)
-           else g5 n alpha score clr m brds
+-- h5 :: Int         -- ^Moves to look ahead.
+--    -> Int         -- ^Current minimum score.
+--    -> Int         -- ^Current maximum score.
+--    -> Player      -- ^The player making this move.
+--    -> Int         -- ^Number of boards scored.
+--    -> [Board]     -- ^The possible next boards.
+--    -> Int         -- ^The current next best.
+--    -> (Int, Int)  -- ^(future score, # of boards scored)
+-- h5 n alpha beta clr m brds score = case clr of
+--   Wht -> if score >= beta
+--            then (score, m)
+--            else g5 n score beta clr m brds
+--   Blk -> if score <= alpha
+--            then (score, m)
+--            else g5 n alpha score clr m brds
 
 -- |List of new boards corresponding to all possible moves by the given player.
 allMoves :: Player -> Board -> [Board]
