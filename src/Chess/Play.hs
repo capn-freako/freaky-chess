@@ -63,19 +63,11 @@ bestMove n clr brd = case n of
   totalMoves   = sum $ map snd f5Rslts  -- Attempt at parallelization yielded no perf. improvement.
   scoredBoards = zip newBoards boardScores
 
--- split :: Int -> [a] -> [[a]]
--- split numChunks xs = chunk (length xs `quot` numChunks) xs
-
--- chunk :: Int -> [a] -> [[a]]
--- chunk n [] = []
--- chunk n xs = as : chunk n bs
---   where (as,bs) = splitAt n xs
-
--- |To understand this code, read Mitchel Wand's paper:
+-- |The /F5/ function from Sec. 5.1 of Wand's paper.
+--
+-- To understand this code, read Mitchel Wand's paper:
 -- /Continuation-Based Program Transformation Strategies/.
 -- In particular, see Sec. 5.1.
---
--- |The /F5/ function from Sec. 5.1 of Wand's paper.
 f5 :: Int         -- ^Moves to look ahead.
    -> Int         -- ^Current minimum score.
    -> Int         -- ^Current maximum score.
@@ -93,6 +85,8 @@ f5 n alpha beta clr m brd = case n of
   leafRslts = (max alpha (min beta (rankBoard brd)), m+1)
 
 -- |The /G5/ function from Sec. 5.1 of Wand's paper.
+--
+-- __Note:__ Wand's /H5/ function has been pulled into this function.
 g5 :: Int         -- ^Moves to look ahead.
    -> Int         -- ^Current minimum score.
    -> Int         -- ^Current maximum score.
@@ -106,7 +100,6 @@ g5 n alpha beta clr m = \case
     let (score, m') = f5 (n-1) alpha beta (otherColor clr) m brd
      in case brds of
           [] -> (score, m')
-          -- _  -> h5 n alpha beta clr m' brds score
           _  -> case clr of
                   Wht -> if score >= beta
                            then (score, m')
@@ -115,28 +108,11 @@ g5 n alpha beta clr m = \case
                            then (score, m')
                            else g5 n alpha score clr m' brds
 
--- |The /H5/ function from Sec. 5.1 of Wand's paper.
--- h5 :: Int         -- ^Moves to look ahead.
---    -> Int         -- ^Current minimum score.
---    -> Int         -- ^Current maximum score.
---    -> Player      -- ^The player making this move.
---    -> Int         -- ^Number of boards scored.
---    -> [Board]     -- ^The possible next boards.
---    -> Int         -- ^The current next best.
---    -> (Int, Int)  -- ^(future score, # of boards scored)
--- h5 n alpha beta clr m brds score = case clr of
---   Wht -> if score >= beta
---            then (score, m)
---            else g5 n score beta clr m brds
---   Blk -> if score <= alpha
---            then (score, m)
---            else g5 n alpha score clr m brds
-
 -- |List of new boards corresponding to all possible moves by the given player.
 allMoves :: Player -> Board -> [Board]
-allMoves clr brd = filter (not . inCheck clr) (normalMoves ++ catMaybes castleMoves)
+allMoves clr brd = filter (not . inCheck clr) (normalMoves ++ catMaybes castleMoves)  -- no gain w/ parMap
  where
-  normalMoves = concatMap (movesFromSquare clr brd) $ positionsByPlayer brd clr
+  normalMoves = concatMap (movesFromSquare clr brd) $ positionsByPlayer brd clr  -- no gain w/ parMap
   castleMoves =
     [ movePiece (pos !! 0) (pos !! 1) brd >>= movePiece (pos !! 2) (pos !! 3)
     | canCastleRight clr brd
