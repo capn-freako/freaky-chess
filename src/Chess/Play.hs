@@ -25,18 +25,18 @@ module Chess.Play where
 
 import qualified Data.Vector as V
 
-import Control.Arrow ((>>>))
-import Control.Parallel.Strategies (using, parList, rseq)
-import Data.Function ((&), on)
-import Data.HashMap.Strict ((!))
-import Data.List     (maximumBy, minimumBy)
-import Data.Maybe    (catMaybes)
+import Control.Arrow               ((>>>))
+import Control.Concurrent.Async    (mapConcurrently)
+import Control.Parallel.Strategies (using, parTraversable, rseq, usingIO)
+import Data.Function               ((&), on)
+import Data.HashMap.Strict         ((!))
+import Data.IORef                  (IORef, newIORef, atomicWriteIORef, readIORef, writeIORef)
+import Data.List                   (maximumBy, minimumBy)
+import Data.Maybe                  (catMaybes)
+import System.IO.Unsafe            (unsafePerformIO)
 
 import Chess.Types
 import Chess.Moves
-
-startingMinScore = (-20000)
-startingMaxScore =   20000
 
 -- |((new board, future projected score), total # of boards scored)
 type ScoredBoard = ((Board, Int), Int)
@@ -44,69 +44,112 @@ type ScoredBoard = ((Board, Int), Int)
 scoreBoard :: Board -> ScoredBoard
 scoreBoard brd = ((brd, rankBoard brd), 1)
 
+-- Globals
+minScore :: Int
+minScore = (-20000)
+
+maxScore :: Int
+maxScore = 20000
+
+alpha' :: IORef Int
+alpha' = unsafePerformIO $ newIORef minScore
+
+beta' :: IORef Int
+beta' = unsafePerformIO $ newIORef maxScore
+
+nScored' :: IORef Int
+nScored' = unsafePerformIO $ newIORef 0
+
 -- |Choose best move, based on given look ahead, returning score.
 --
 -- __Note:__ The returned score corresponds to a board @N@ moves ahead.
+-- bestMove :: IORef Int    -- ^Min. score.
+--          -> IORef Int    -- ^Max. score.
+--          -> IORef Int    -- ^# of boards scored.
 bestMove :: Int          -- ^Moves to look ahead. (0 just returns the scored board.)
          -> Player       -- ^The player making this move.
          -> Board        -- ^The existing board.
-         -> ScoredBoard
+         -> IO ScoredBoard
 bestMove n clr brd = case n of
-  0 -> scoreBoard brd
-  _ -> case clr of
-    Wht -> (maximumBy (compare `on` snd) scoredBoards, totalMoves)
-    Blk -> (minimumBy (compare `on` snd) scoredBoards, totalMoves)
- where
-  newBoards    = allMoves clr brd  -- Is this the serial culprit?
-  f5Rslts      = map (f5 (n-1) startingMinScore startingMaxScore (otherColor clr) 0) newBoards `using` parList rseq
-  boardScores  = map fst f5Rslts
-  totalMoves   = sum $ map snd f5Rslts  -- Attempt at parallelization yielded no perf. improvement.
-  scoredBoards = zip newBoards boardScores
+  0 -> return $ scoreBoard brd  -- Should not occur, but is not technically an error.
+  _ -> do
+    writeIORef alpha' minScore
+    writeIORef beta'  maxScore
+    writeIORef nScored' 0
+    parF5 (n-1) (otherColor clr) $ allMoves clr brd
+
+-- |Parallelized /F5/.
+parF5 :: Int      -- ^Moves to look ahead.
+      -> Player   -- ^The player making this move.
+      -> [Board]  -- ^The list of boards to evaluate in parallel.
+      -> IO ScoredBoard
+parF5 n clr brds = do
+  -- f5Rslts <- mapM (f5 n clr) brds `usingIO` parTraversable rseq
+  f5Rslts <- mapConcurrently (f5 n clr) brds
+  let boardScores  = map fst f5Rslts
+      totalMoves   = sum $ map snd f5Rslts
+      scoredBoards = zip brds boardScores
+  return $ case clr of
+      Wht -> (maximumBy (compare `on` snd) scoredBoards, totalMoves)
+      Blk -> (minimumBy (compare `on` snd) scoredBoards, totalMoves)
 
 -- |The /F5/ function from Sec. 5.1 of Wand's paper.
 --
 -- To understand this code, read Mitchel Wand's paper:
 -- /Continuation-Based Program Transformation Strategies/.
 -- In particular, see Sec. 5.1.
-f5 :: Int         -- ^Moves to look ahead.
-   -> Int         -- ^Current minimum score.
-   -> Int         -- ^Current maximum score.
-   -> Player      -- ^The player making the next move.
-   -> Int         -- ^Number of boards scored.
-   -> Board       -- ^The board to assess.
-   -> (Int, Int)  -- ^(future score, # of boards scored)
-f5 n alpha beta clr m brd = case n of
-  0 -> leafRslts
-  _ -> case newBoards of
-    [] -> leafRslts
-    _  -> g5 n alpha beta clr m newBoards
+f5 :: Int            -- ^Moves to look ahead.
+   -> Player         -- ^The player making the next move.
+   -> Board          -- ^The board to assess.
+   -> IO (Int, Int)  -- ^(future score, # of boards scored)
+f5 n clr brd = do
+  alpha   <- readIORef alpha'
+  beta    <- readIORef beta'
+  nScored <- readIORef nScored'
+  let (score, m) = (max alpha (min beta (rankBoard brd)), nScored+1)
+      ret        = do
+        case clr of
+          Wht -> if score /= alpha  -- Score sets a new best case for White.
+                   then writeIORef beta' score
+                   else return ()
+          Blk -> if score /= beta  -- Score sets a new best case for Black.
+                   then writeIORef alpha' score
+                   else return ()
+        return (score, m)
+  case n of
+    0 -> ret
+    _ -> case newBoards of
+      [] -> ret
+      _  -> do
+        writeIORef nScored' m
+        ((_, score'), m') <- parF5 (n-1) (otherColor clr) newBoards
+        return (score', m')
  where
   newBoards = allMoves clr brd
-  leafRslts = (max alpha (min beta (rankBoard brd)), m+1)
 
 -- |The /G5/ function from Sec. 5.1 of Wand's paper.
 --
 -- __Note:__ Wand's /H5/ function has been pulled into this function.
-g5 :: Int         -- ^Moves to look ahead.
-   -> Int         -- ^Current minimum score.
-   -> Int         -- ^Current maximum score.
-   -> Player      -- ^The player making this move.
-   -> Int         -- ^Number of boards scored.
-   -> [Board]     -- ^The possible next boards.
-   -> (Int, Int)  -- ^(future score, # of boards scored)
-g5 n alpha beta clr m = \case
-  [] -> error "Whoops! `g5` called with an empty list of next possible boards."
-  brd : brds ->
-    let (score, m') = f5 (n-1) alpha beta (otherColor clr) m brd
-     in case brds of
-          [] -> (score, m')
-          _  -> case clr of
-                  Wht -> if score >= beta
-                           then (score, m')
-                           else g5 n score beta clr m' brds
-                  Blk -> if score <= alpha
-                           then (score, m')
-                           else g5 n alpha score clr m' brds
+-- g5 :: Int
+--    -> Int
+--    -> Int
+--    -> Int            -- ^Moves to look ahead.
+--    -> Player         -- ^The player making this move.
+--    -> [Board]        -- ^The possible next boards.
+--    -> IO (Int, Int)  -- ^(future score, # of boards scored)
+-- g5 alpha beta nScored n clr = \case
+--   [] -> error "Whoops! `g5` called with an empty list of next possible boards."
+--   brd : brds -> do
+--     (score, m) <- f5 (n-1) (otherColor clr) brd
+--     case brds of
+--       [] -> return (score, m)
+--       _  -> case clr of
+--               Wht -> if score >= beta
+--                        then return (score, m)
+--                        else g5 score beta m n clr brds
+--               Blk -> if score <= alpha
+--                        then return (score, m)
+--                        else g5 alpha score m n clr brds
 
 -- |List of new boards corresponding to all possible moves by the given player.
 allMoves :: Player -> Board -> [Board]

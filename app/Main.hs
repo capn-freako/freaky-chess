@@ -90,8 +90,9 @@ iter previousMoves = do
                   _ -> do putStr "Thinking..."  -- and calculate Black's response.
                           hFlush stdout
                           res <- timeItT $ do
-                            let ((!brd'', _), !nMoves) = bestMove lookAheadFactor Blk brd'
-                                !score''               = rankBoard brd''
+                            -- let ((!brd'', _), !nMoves) = bestMove lookAheadFactor Blk brd'
+                            ((!brd'', _), !nMoves) <- bestMove lookAheadFactor Blk brd'
+                            let !score'' = rankBoard brd''
                             return (nMoves, score'', brd'')
                           let (nMoves, score'', brd'') = timedValue res
                               nSecs                    = timedTime  res
@@ -174,7 +175,7 @@ decodeSquare str = case str of
 -- |Trace/debug last AI move selection.
 doTrace :: Int -> Player -> Board -> IO ()
 doTrace n clr brd = do
-  let ((brd', score'), _) = bestMove n clr brd
+  ((brd', score'), _) <- bestMove n clr brd
   printBoard brd'
   putStrLn $ "AI's predicted future score: " ++ show score'
   case n of
