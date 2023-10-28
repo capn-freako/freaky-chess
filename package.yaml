@@ -43,8 +43,8 @@ ghc-options:
 - -Wmissing-home-modules
 - -Wpartial-fields
 - -Wredundant-constraints
+- -Wno-type-defaults
 - -O2
-- -eventlog
 
 library:
   source-dirs: src
@@ -62,14 +62,9 @@ executables:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
-    - -O2
-    - -eventlog
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    # - -fno-prof-auto
-    # - -fno-prof-cafs
-    # - -fforce-recomp
     dependencies:
     - freaky-chess
 

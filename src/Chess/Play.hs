@@ -35,7 +35,9 @@ import Data.Maybe    (catMaybes)
 import Chess.Types
 import Chess.Moves
 
+startingMinScore :: Int
 startingMinScore = (-20000)
+startingMaxScore :: Int
 startingMaxScore =   20000
 
 -- |((new board, future projected score), total # of boards scored)
@@ -62,14 +64,6 @@ bestMove n clr brd = case n of
   boardScores  = map fst f5Rslts
   totalMoves   = sum $ map snd f5Rslts  -- Attempt at parallelization yielded no perf. improvement.
   scoredBoards = zip newBoards boardScores
-
-split :: Int -> [a] -> [[a]]
-split numChunks xs = chunk (length xs `quot` numChunks) xs
-
-chunk :: Int -> [a] -> [[a]]
-chunk n [] = []
-chunk n xs = as : chunk n bs
-  where (as,bs) = splitAt n xs
 
 -- |To understand this code, read Mitchel Wand's paper:
 -- /Continuation-Based Program Transformation Strategies/.

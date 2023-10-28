@@ -37,7 +37,7 @@ import Chess.Play
 import Chess.Types
 
 lookAheadFactor :: Int
-lookAheadFactor = 4  -- Should be even, to ensure that White gets the last move.
+lookAheadFactor = 6  -- Should be even, to ensure that White gets the last move.
 
 -- |Run the game to completion and print out average performance and score history.
 main :: IO ()
@@ -89,10 +89,9 @@ iter previousMoves = do
                                    return Nothing
                   _ -> do putStr "Thinking..."  -- and calculate Black's response.
                           hFlush stdout
-                          res <- timeItT $ do
-                            let ((!brd'', _), !nMoves) = bestMove lookAheadFactor Blk brd'
-                                !score''               = rankBoard brd''
-                            return (nMoves, score'', brd'')
+                          res <- timeItT 0 $ do let ((!brd'', _), !nMoves) = bestMove lookAheadFactor Blk brd'
+                                                    !score''               = rankBoard brd''
+                                                return (nMoves, score'', brd'')
                           let (nMoves, score'', brd'') = timedValue res
                               nSecs                    = timedTime  res
                           let perf'' = round $ 1.0e9 * fromIntegral nMoves / fromIntegral nSecs
