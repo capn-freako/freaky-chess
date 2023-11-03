@@ -14,7 +14,7 @@ Copyright   : (c) David Banas, 2023; all rights reserved World wide.
 License     : BSD-3
 Maintainer  : capn.freako@gmail.com
 Stability   : experimental
-Portability : 'stack' LTS 20.17; ASCII
+Portability : 'stack' LTS 21.17; ASCII
 
 Functions for executing the play of a Chess game from start to finish.
 Both manual play, according to typed movement commands, as well as
