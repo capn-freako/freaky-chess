@@ -37,7 +37,7 @@ import Chess.Play
 import Chess.Types
 
 lookAheadFactor :: Int
-lookAheadFactor = 6  -- Should be even, to ensure that White gets the last move.
+lookAheadFactor = 4  -- Should be even, to ensure that White gets the last move.
 
 -- |Run the game to completion and print out average performance and score history.
 main :: IO ()
