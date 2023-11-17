@@ -7,6 +7,8 @@
 
 {-# OPTIONS_HADDOCK show-extensions #-}
 
+{-# LANGUAGE DeriveGeneric, DeriveAnyClass #-}
+
 {-|
 Module      : Chess.Types
 Description : Data types used by the 'freaky-chess' application.
@@ -30,6 +32,8 @@ module Chess.Types
 import qualified Data.Set    as Set
 import qualified Data.Vector as V
 
+import GHC.Generics              (Generic)
+import Control.DeepSeq
 import Control.Monad.State.Lazy
 import Data.Char                 (chr, ord)
 import Data.HashMap.Strict       (HashMap, fromList)
@@ -47,6 +51,7 @@ data Board = Board
   , whiteKingPos :: Position                -- ^Position of white king.
   , blackKingPos :: Position                -- ^Position of black king.
   }
+  deriving (Generic, NFData)
 
 -- |Return a new game board, set up and ready for the first move of play.
 newGame :: Board
@@ -103,7 +108,7 @@ newGame = execState
 --
 -- __Note:__ The @UnsafePosition@ data constructor is /not/ exported.
 newtype Position = UnsafePosition (Int, Int)
-  deriving newtype (Eq, Ord)
+  deriving newtype (Eq, Ord, NFData)
 
 instance Show Position where
   show (UnsafePosition (rank, file)) = [chr (ord 'a' + file), chr (ord '1' + rank)]
@@ -135,7 +140,7 @@ validPosition (r, f) = not (r < 0 || r > 7 || f < 0 || f > 7)
 
 data Square = Empty
             | Occupied Player Piece
-  deriving (Eq)
+  deriving (Eq, Generic, NFData)
 
 instance Show Square where
   show Empty                = "   "
@@ -166,7 +171,7 @@ kingPos clr brd = case clr of
 
 data Player = Blk
             | Wht
-  deriving(Eq)
+  deriving(Eq, Generic, NFData)
 
 data Piece = P
            | R
@@ -174,7 +179,7 @@ data Piece = P
            | B
            | Q
            | K
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic, NFData)
 
 instance Show Piece where
   show piece =

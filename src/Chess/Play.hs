@@ -26,7 +26,7 @@ module Chess.Play where
 import qualified Data.Vector as V
 
 import Control.Arrow ((>>>))
-import Control.Parallel.Strategies (using, parList, rseq)
+import Control.Parallel.Strategies (parMap, rdeepseq)
 import Data.Function ((&), on)
 import Data.HashMap.Strict ((!))
 import Data.List     (maximumBy, minimumBy)
@@ -36,7 +36,7 @@ import Chess.Types
 import Chess.Moves
 
 startingMinScore :: Int
-startingMinScore = (-20000)
+startingMinScore =  -20000
 startingMaxScore :: Int
 startingMaxScore =   20000
 
@@ -53,23 +53,13 @@ bestMove :: Int          -- ^Moves to look ahead. (0 just returns the scored boa
          -> Player       -- ^The player making this move.
          -> Board        -- ^The existing board.
          -> ScoredBoard
-bestMove n clr brd = case n of
-  0 -> scoreBoard brd
-  _ -> case clr of
-    Wht -> (maximumBy (compare `on` snd) scoredBoards, totalMoves)
-    Blk -> (minimumBy (compare `on` snd) scoredBoards, totalMoves)
- where
-  newBoards    = allMoves clr brd  -- Is this the serial culprit?
-  f5Rslts      = map (f5 (n-1) startingMinScore startingMaxScore (otherColor clr) 0) newBoards `using` parList rseq
-  boardScores  = map fst f5Rslts
-  totalMoves   = sum $ map snd f5Rslts  -- Attempt at parallelization yielded no perf. improvement.
-  scoredBoards = zip newBoards boardScores
+bestMove n clr = g5 n startingMinScore startingMaxScore clr 0
 
 -- |To understand this code, read Mitchel Wand's paper:
 -- /Continuation-Based Program Transformation Strategies/.
 -- In particular, see Sec. 5.1.
 --
--- |The /F5/ function from Sec. 5.1 of Wand's paper.
+-- |The /F5/ function from Sec. 5.1 of Wand's paper, retooled for bottom-up parallelization.
 f5 :: Int         -- ^Moves to look ahead.
    -> Int         -- ^Current minimum score.
    -> Int         -- ^Current maximum score.
@@ -78,46 +68,44 @@ f5 :: Int         -- ^Moves to look ahead.
    -> Board       -- ^The board to assess.
    -> (Int, Int)  -- ^(future score, # of boards scored)
 f5 n alpha beta clr m brd = case n of
-  0 -> leafRslts
-  _ -> case newBoards of
-    [] -> leafRslts
-    _  -> g5 n alpha beta clr m newBoards
- where
-  newBoards = allMoves clr brd
-  leafRslts = (max alpha (min beta (rankBoard brd)), m+1)
+  0 -> (max alpha (min beta (rankBoard brd)), m+1)
+  _ -> let ((_, score), m') = g5 n alpha beta clr m brd
+        in (score, m')
 
--- |The /G5/ function from Sec. 5.1 of Wand's paper.
+-- |The /G5/ function from Sec. 5.1 of Wand's paper, retooled for bottom-up parallelization.
 g5 :: Int         -- ^Moves to look ahead.
    -> Int         -- ^Current minimum score.
    -> Int         -- ^Current maximum score.
    -> Player      -- ^The player making this move.
    -> Int         -- ^Number of boards scored.
-   -> [Board]     -- ^The possible next boards.
-   -> (Int, Int)  -- ^(future score, # of boards scored)
-g5 n alpha beta clr m = \case
-  [] -> error "Whoops! `g5` called with an empty list of next possible boards."
-  brd : brds ->
-    let (score, m') = f5 (n-1) alpha beta (otherColor clr) m brd
-     in case brds of
-          [] -> (score, m')
-          _  -> h5 n alpha beta clr m' brds score
-
--- |The /H5/ function from Sec. 5.1 of Wand's paper.
-h5 :: Int         -- ^Moves to look ahead.
-   -> Int         -- ^Current minimum score.
-   -> Int         -- ^Current maximum score.
-   -> Player      -- ^The player making this move.
-   -> Int         -- ^Number of boards scored.
-   -> [Board]     -- ^The possible next boards.
-   -> Int         -- ^The current next best.
-   -> (Int, Int)  -- ^(future score, # of boards scored)
-h5 n alpha beta clr m brds score = case clr of
-  Wht -> if score >= beta
-           then (score, m)
-           else g5 n score beta clr m brds
-  Blk -> if score <= alpha
-           then (score, m)
-           else g5 n alpha score clr m brds
+   -> Board       -- ^The current board.
+   -> ScoredBoard
+g5 n alpha beta clr m brd = case n of
+  0 -> scoreBoard brd
+  _ -> case newBoards of
+    []          -> scoreBoard brd
+    brd' : brds -> 
+      let (score,  m')    = f5 (n-1) alpha beta clr' m brd'
+          (alpha', beta') = case clr of
+            Wht -> if score < beta
+                     then (score, beta)
+                     else (alpha, beta)
+            Blk -> if score > alpha
+                     then (alpha, score)
+                     else (alpha, beta)
+          f5Rslts = (score,  m')
+                  : if n > 1
+                      then parMap rdeepseq (f5 (n-1) alpha' beta' clr' m) brds
+                      else map             (f5 (n-1) alpha' beta' clr' m) brds
+          boardScores  = map fst f5Rslts
+          totalMoves   = sum $ map snd f5Rslts
+          scoredBoards = zip newBoards boardScores
+       in case clr of
+            Wht -> (maximumBy (compare `on` snd) scoredBoards, totalMoves)
+            Blk -> (minimumBy (compare `on` snd) scoredBoards, totalMoves)
+ where
+  newBoards = allMoves clr brd
+  clr'      = otherColor clr
 
 -- |List of new boards corresponding to all possible moves by the given player.
 allMoves :: Player -> Board -> [Board]
